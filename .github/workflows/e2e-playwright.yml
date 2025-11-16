@@ -1,0 +1,49 @@
+name: Playwright E2E
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm --filter=web-e2e exec playwright install --with-deps
+
+      - name: Install Supabase CLI
+        run: npm install -g supabase
+
+      - name: Start Supabase (background)
+        run: pnpm --filter=web run supabase:start &
+
+      - name: Start web (background)
+        run: pnpm --filter=web dev &
+
+      - name: Wait for app
+        run: npx wait-on http://localhost:3000 -t 60000
+
+      - name: Run Playwright tests
+        working-directory: ./apps/e2e
+        run: pnpm test --reporter=list
+
+      - name: Upload Playwright report
+        if: always()
+        run: pnpm --filter=web-e2e run report || true

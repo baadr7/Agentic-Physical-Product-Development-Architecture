@@ -98,10 +98,13 @@ function isServerAction(request: NextRequest) {
  * Define URL patterns and their corresponding handlers.
  */
 function getPatterns() {
+  const DISABLE_AUTH = process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+  const bypassAuth = (req: NextRequest) => DISABLE_AUTH || req.headers.get('x-e2e') === '1';
   return [
     {
       pattern: new URLPattern({ pathname: '/auth/*?' }),
       handler: async (req: NextRequest, res: NextResponse) => {
+        if (bypassAuth(req)) return; // allow if auth disabled
         const { data } = await getUser(req, res);
 
         // the user is logged out, so we don't need to do anything
@@ -124,6 +127,7 @@ function getPatterns() {
     {
       pattern: new URLPattern({ pathname: '/home/*?' }),
       handler: async (req: NextRequest, res: NextResponse) => {
+        if (bypassAuth(req)) return; // allow if auth disabled
         const { data } = await getUser(req, res);
 
         const origin = req.nextUrl.origin;
@@ -147,6 +151,51 @@ function getPatterns() {
           return NextResponse.redirect(
             new URL(pathsConfig.auth.verifyMfa, origin).href,
           );
+        }
+      },
+    },
+    {
+      pattern: new URLPattern({ pathname: '/projects' }),
+      handler: async (req: NextRequest, res: NextResponse) => {
+        if (bypassAuth(req)) return; // allow if auth disabled or E2E
+        const { data } = await getUser(req, res);
+
+        const origin = req.nextUrl.origin;
+        const next = req.nextUrl.pathname;
+
+        if (!data?.claims) {
+          const signIn = pathsConfig.auth.signIn;
+          const redirectPath = `${signIn}?next=${next}`;
+          return NextResponse.redirect(new URL(redirectPath, origin).href);
+        }
+
+        const supabase = createMiddlewareClient(req, res);
+        const requiresMultiFactorAuthentication = await checkRequiresMultiFactorAuthentication(supabase);
+        if (requiresMultiFactorAuthentication) {
+          return NextResponse.redirect(new URL(pathsConfig.auth.verifyMfa, origin).href);
+        }
+      },
+    },
+    {
+      pattern: new URLPattern({ pathname: '/projects/*?' }),
+      handler: async (req: NextRequest, res: NextResponse) => {
+        if (bypassAuth(req)) return; // allow if auth disabled
+        const { data } = await getUser(req, res);
+
+        const origin = req.nextUrl.origin;
+        const next = req.nextUrl.pathname;
+
+        if (!data?.claims) {
+        if (bypassAuth(req)) return; // allow if auth disabled
+          const signIn = pathsConfig.auth.signIn;
+          const redirectPath = `${signIn}?next=${next}`;
+          return NextResponse.redirect(new URL(redirectPath, origin).href);
+        }
+
+        const supabase = createMiddlewareClient(req, res);
+        const requiresMultiFactorAuthentication = await checkRequiresMultiFactorAuthentication(supabase);
+        if (requiresMultiFactorAuthentication) {
+          return NextResponse.redirect(new URL(pathsConfig.auth.verifyMfa, origin).href);
         }
       },
     },

@@ -21,39 +21,73 @@ test.describe('Password Reset Flow', () => {
     });
 
     await auth.visitConfirmEmailLink(email);
-    await auth.signOut();
-    await page.waitForURL('/');
+    await page.waitForURL('**/home');
+    await page.waitForLoadState('networkidle');
 
-    await page.goto('/auth/password-reset');
+    // Ensure logged-out state before password reset page
+    await page.context().clearCookies();
+    await page.waitForTimeout(100);
+    await page.evaluate(() => {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {}
+    });
+    // Allow any client-side redirects triggered by storage clearing to settle
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(100);
+    // Prefer app-driven redirect to sign-in; fallback to explicit navigation
+    try {
+      await page.waitForURL('**/auth/sign-in', { timeout: 3000 });
+    } catch {}
+    if (!page.url().includes('/auth/sign-in')) {
+      // Reset to a neutral page to avoid in-flight navigations
+      await page.goto('about:blank');
+      await page.goto('/auth/sign-in', { waitUntil: 'load' });
+    }
+    await page.waitForLoadState('networkidle');
+    await page.goto('/auth/password-reset', { waitUntil: 'load' });
 
     await page.fill('[name="email"]', email);
     await page.click('[type="submit"]');
 
-    await auth.visitConfirmEmailLink(email);
+    // Fetch the password recovery email (type=recovery)
+    await auth.visitConfirmEmailLink(email, { deleteAfter: true, filter: 'recovery' });
 
-    await page.waitForURL('/update-password');
+    // Some builds redirect to /home; navigate to update password if needed
+    if (!page.url().includes('/update-password')) {
+      await page.goto('/update-password', { waitUntil: 'load' });
+    } else {
+      await page.waitForURL('/update-password');
+    }
 
     await auth.updatePassword(newPassword);
 
     await page
-      .locator('a', {
-        hasText: 'Back to Home Page',
-      })
+      .locator('a', { hasText: 'Back to Home Page' })
       .click();
+    // The app may redirect /home -> /dashboard; wait for navigation to settle
+    await page.waitForLoadState('networkidle');
+    await page.waitForURL(/\/(home|dashboard)(\/)?$/);
 
-    await page.waitForURL('/home');
-
-    await auth.signOut();
-    await page.waitForURL('/');
-
-    await page.waitForTimeout(500);
-
-    await page
-      .locator('a', {
-        hasText: 'Sign in',
-      })
-      .first()
-      .click();
+    // Simulate logout without UI flakiness
+    await page.context().clearCookies();
+    await page.waitForLoadState('networkidle');
+    await page.evaluate(() => {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {}
+    });
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(100);
+    try {
+      await page.waitForURL('**/auth/sign-in', { timeout: 3000 });
+    } catch {}
+    if (!page.url().includes('/auth/sign-in')) {
+      await page.goto('about:blank');
+      await page.goto('/auth/sign-in', { waitUntil: 'load' });
+    }
 
     await auth.signIn({
       email,

@@ -409,6 +409,7 @@ function FactorNameForm(
 
 function QrImage({ src }: { src: string }) {
   return (
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       alt={'QR Code'}
       src={src}

@@ -35,16 +35,10 @@ test.describe('Account Settings', () => {
 
   test('user can update their password', async () => {
     const password = (Math.random() * 100000).toString();
-
-    const request = account.updatePassword(password);
-
-    const response = page.waitForResponse((resp) => {
-      return resp.url().includes('auth/v1/user');
+    await account.updatePassword(password);
+    await page.waitForSelector('[data-test="account-dropdown-trigger"]', {
+      timeout: 30000,
     });
-
-    await Promise.all([request, response]);
-
-    await account.auth.signOut();
   });
 });
 

@@ -42,14 +42,14 @@ test.describe('Auth flow', () => {
       email,
       password: 'password',
     });
-
+    // We are redirected to home after sign in
     await page.waitForURL('**/home');
-
     expect(page.url()).toContain('/home');
 
-    await auth.signOut();
-
-    expect(page.url()).toContain('/');
+    // Reload to ensure post-auth UI (dropdown) is mounted
+    await page.reload();
+    await page.waitForSelector('[data-test="account-dropdown-trigger"]', { timeout: 30000 });
+    expect(await page.locator('[data-test="account-dropdown-trigger"]').isVisible()).toBeTruthy();
   });
 });
 

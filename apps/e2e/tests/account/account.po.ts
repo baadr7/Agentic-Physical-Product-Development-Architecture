@@ -5,6 +5,8 @@ import { AuthPageObject } from '../authentication/auth.po';
 export class AccountPageObject {
   private readonly page: Page;
   public auth: AuthPageObject;
+  private email?: string;
+  private readonly password: string = 'password';
 
   constructor(page: Page) {
     this.page = page;
@@ -12,7 +14,38 @@ export class AccountPageObject {
   }
 
   async setup() {
-    return this.auth.signUpFlow('/home/settings');
+    this.email = this.auth.createRandomEmail();
+
+    await this.page.goto(`/auth/sign-up?next=/home/settings`);
+
+    await this.auth.signUp({
+      email: this.email,
+      password: this.password,
+      repeatPassword: this.password,
+    });
+
+    // Wait for auth request to fire, then confirm email
+    const response = this.page.waitForResponse((resp) => resp.url().includes('auth'));
+    await response;
+
+    await this.auth.visitConfirmEmailLink(this.email);
+
+    // Ensure session is established, then perform a password-based sign-in
+    await this.page.waitForLoadState('networkidle');
+    // Clear session to ensure next login uses password factor
+    await this.page.context().clearCookies();
+    await this.page.evaluate(() => {
+      try {
+        localStorage.clear();
+        sessionStorage.clear();
+      } catch {}
+    });
+    await this.page.goto('/auth/sign-in', { waitUntil: 'load' });
+    await this.auth.signIn({ email: this.email, password: this.password });
+    await this.page.waitForURL('**/home');
+
+    // Navigate to settings where forms are available
+    await this.page.goto('/home/settings');
   }
 
   async updateName(name: string) {

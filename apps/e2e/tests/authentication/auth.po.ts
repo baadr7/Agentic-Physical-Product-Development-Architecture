@@ -20,8 +20,24 @@ export class AuthPageObject {
   }
 
   async signOut() {
-    await this.page.click('[data-test="account-dropdown-trigger"]');
-    await this.page.click('[data-test="account-dropdown-sign-out"]');
+    // Remove Next.js dev overlay which can intercept pointer events during tests
+    await this.page.evaluate(() => {
+      const overlay = document.querySelector('[data-nextjs-dev-overlay="true"]')?.parentElement;
+      if (overlay) {
+        overlay.remove();
+      }
+      const portal = document.querySelector('nextjs-portal');
+      if (portal) {
+        portal.remove();
+      }
+    });
+    const trigger = this.page.locator('[data-test="account-dropdown-trigger"]');
+    await trigger.waitFor({ state: 'visible' });
+    await trigger.click({ force: true });
+
+    const signOutBtn = this.page.locator('[data-test="account-dropdown-sign-out"]');
+    await signOutBtn.waitFor({ state: 'visible' });
+    await signOutBtn.click();
   }
 
   async signIn(params: { email: string; password: string }) {
@@ -30,6 +46,8 @@ export class AuthPageObject {
     await this.page.fill('input[name="email"]', params.email);
     await this.page.fill('input[name="password"]', params.password);
     await this.page.click('button[type="submit"]');
+    await this.page.waitForURL('**/home');
+    await this.page.waitForSelector('[data-test="account-dropdown-trigger"]', { timeout: 30000 });
   }
 
   async signUp(params: {
@@ -50,6 +68,7 @@ export class AuthPageObject {
     email: string,
     params: {
       deleteAfter: boolean;
+      filter?: 'recovery' | 'email' | RegExp;
     } = {
       deleteAfter: true,
     },
@@ -82,6 +101,8 @@ export class AuthPageObject {
   }
 
   async updatePassword(password: string) {
+    await this.page.waitForSelector('[name="password"]');
+    await this.page.waitForSelector('[name="repeatPassword"]');
     await this.page.fill('[name="password"]', password);
     await this.page.fill('[name="repeatPassword"]', password);
     await this.page.click('[type="submit"]');

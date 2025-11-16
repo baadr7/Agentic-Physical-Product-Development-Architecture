@@ -1,0 +1,4 @@
+# Optional MLflow extras (install only if using ML tracking)
+# Note: mlflow 2.9.2 pins numpy<2, which currently lacks wheels for Python 3.14.
+# Use Python 3.12 for best compatibility, or install via conda.
+mlflow==2.9.2
