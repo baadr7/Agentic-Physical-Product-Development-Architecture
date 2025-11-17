@@ -278,20 +278,23 @@ def create_run(payload: RunCreate, background_tasks: BackgroundTasks):
     # minimal validation
     if not payload.project_id:
         raise HTTPException(status_code=400, detail="project_id required")
+    # Generate a public run_id (required by schema; run_id column is NOT NULL UNIQUE)
+    run_id_val = f"run-{uuid.uuid4().hex[:8]}"
     # If Supabase is configured, persist run there and return representation
     try:
         if SUPABASE_URL:
+            # Schema uses 'parameters' instead of 'options'
             row = create_run_supabase({
+                'run_id': run_id_val,
                 'project_id': payload.project_id,
                 'status': 'queued',
                 'input_mode': payload.input_mode,
                 'description': payload.description,
                 'constraints': payload.constraints,
-                'options': payload.options,
+                'parameters': payload.options,  # store provided options
                 'created_at': datetime.now(UTC).isoformat(),
             })
             if row:
-                run_id_val = row.get('run_id') or row.get('id') or f"run-{uuid.uuid4().hex[:8]}"
                 # schedule async processing (Celery preferred if enabled)
                 if CELERY_ENABLED:
                     try:
@@ -314,9 +317,8 @@ def create_run(payload: RunCreate, background_tasks: BackgroundTasks):
         print('Supabase create_run error:', e)
 
     # Fallback: create in-memory run
-    run_id = f"run-{uuid.uuid4().hex[:8]}"
     run = {
-        'run_id': run_id,
+        'run_id': run_id_val,
         'status': 'queued',
         'project_id': payload.project_id,
         'created_at': datetime.now(UTC).isoformat(),
@@ -326,18 +328,18 @@ def create_run(payload: RunCreate, background_tasks: BackgroundTasks):
     # Background work could be scheduled here (workers)
     if CELERY_ENABLED:
         try:
-            process_run_task.delay(run_id, payload.project_id)
+            process_run_task.delay(run_id_val, payload.project_id)
         except Exception as e:
             print('Celery enqueue failed (fallback to BackgroundTasks):', e)
             try:
-                background_tasks.add_task(process_run, run_id, payload.project_id)
+                background_tasks.add_task(process_run, run_id_val, payload.project_id)
             except Exception:
-                print('Failed to schedule background task for in-memory run', run_id)
+                print('Failed to schedule background task for in-memory run', run_id_val)
     else:
         try:
-            background_tasks.add_task(process_run, run_id, payload.project_id)
+            background_tasks.add_task(process_run, run_id_val, payload.project_id)
         except Exception:
-            print('Failed to schedule background task for in-memory run', run_id)
+            print('Failed to schedule background task for in-memory run', run_id_val)
     return RunOut(**run)
 
 
