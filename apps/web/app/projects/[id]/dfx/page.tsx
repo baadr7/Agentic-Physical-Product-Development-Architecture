@@ -5,8 +5,8 @@ import { MOCK_DFX_SUMMARY, MOCK_VARIANTS } from '~/lib/mock-data';
 import { DfxSummary, Variant } from '~/lib/types';
 import { apiGetRunFull, apiGetRuns, apiReportPdfUrl } from '~/lib/api/fastapi';
 
-export default function DfxPage({ params }: { params: { id: string } }) {
-  const projectId = params.id;
+export default async function DfxPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: projectId } = await params;
   const [dfxSummary, setDfxSummary] = useState<DfxSummary>(MOCK_DFX_SUMMARY);
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(MOCK_VARIANTS[0] ?? null);
   const [runId, setRunId] = useState<string | null>(null);
