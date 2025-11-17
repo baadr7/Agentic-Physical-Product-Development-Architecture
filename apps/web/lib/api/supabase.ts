@@ -2,8 +2,26 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const disableAuth = process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// When auth is disabled or no Supabase credentials are provided, avoid initializing
+// the real client (which triggers failed network refresh attempts) and provide
+// lightweight no-op stubs so the rest of the app can render without errors.
+export const supabase = !disableAuth && supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey)
+  : ({
+      auth: {
+        getUser: async () => ({ data: { user: null } }),
+      },
+      from: () => ({
+        select: () => ({ data: [], error: null }),
+        eq: () => ({ select: () => ({ data: [], error: null }) }),
+        insert: () => ({ select: () => ({ data: [], error: null }) }),
+        update: () => ({ select: () => ({ data: [], error: null }) }),
+        order: () => ({ data: [], error: null }),
+        single: () => ({ data: null, error: null }),
+      }),
+    } as any);
 
 /**
  * Get current user
@@ -20,6 +38,7 @@ export async function getCurrentUser() {
  */
 export async function getProjects() {
   const user = await getCurrentUser();
+  if (disableAuth || !supabaseUrl || !supabaseKey) return [];
   if (!user) throw new Error('Not authenticated');
 
   const { data, error } = await supabase
@@ -51,6 +70,13 @@ export async function createProject(project: {
   materials?: string[];
 }) {
   const user = await getCurrentUser();
+  if (disableAuth || !supabaseUrl || !supabaseKey) return {
+    id: 'stub-project',
+    user_id: 'stub-user',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    ...project,
+  } as any;
   if (!user) throw new Error('Not authenticated');
 
   const { data, error } = await supabase
@@ -71,23 +97,23 @@ export async function createProject(project: {
  * Runs API
  */
 export async function getRuns(projectId: string) {
+  if (disableAuth || !supabaseUrl || !supabaseKey) return [];
   const { data, error } = await supabase
     .from('runs')
     .select('*')
     .eq('project_id', projectId)
     .order('created_at', { ascending: false });
-
   if (error) throw error;
   return data;
 }
 
 export async function getRun(runId: string) {
+  if (disableAuth || !supabaseUrl || !supabaseKey) return null;
   const { data, error } = await supabase
     .from('runs')
     .select('*')
     .eq('run_id', runId)
     .single();
-
   if (error) throw error;
   return data;
 }
@@ -97,6 +123,13 @@ export async function createRun(run: {
   project_id: string;
   parameters: Record<string, unknown>;
 }) {
+  if (disableAuth || !supabaseUrl || !supabaseKey)
+    return {
+      ...run,
+      status: 'completed',
+      started_at: new Date().toISOString(),
+      finished_at: new Date().toISOString(),
+    } as any;
   const { data, error } = await supabase
     .from('runs')
     .insert([
@@ -106,7 +139,6 @@ export async function createRun(run: {
       },
     ])
     .select();
-
   if (error) throw error;
   return data?.[0];
 }
@@ -115,12 +147,12 @@ export async function updateRun(
   runId: string,
   updates: Record<string, unknown>
 ) {
+  if (disableAuth || !supabaseUrl || !supabaseKey) return { run_id: runId, ...updates } as any;
   const { data, error } = await supabase
     .from('runs')
     .update(updates)
     .eq('run_id', runId)
     .select();
-
   if (error) throw error;
   return data?.[0];
 }
@@ -129,12 +161,12 @@ export async function updateRun(
  * Variants API
  */
 export async function getVariants(runId: string) {
+  if (disableAuth || !supabaseUrl || !supabaseKey) return [];
   const { data, error } = await supabase
     .from('variants')
     .select('*')
     .eq('run_id', runId)
     .order('created_at', { ascending: false });
-
   if (error) throw error;
   return data;
 }
@@ -147,11 +179,11 @@ export async function createVariant(variant: {
   metrics: Record<string, unknown>;
   score: number;
 }) {
+  if (disableAuth || !supabaseUrl || !supabaseKey) return { id: 'stub-variant', ...variant } as any;
   const { data, error } = await supabase
     .from('variants')
     .insert([variant])
     .select();
-
   if (error) throw error;
   return data?.[0];
 }
@@ -160,12 +192,12 @@ export async function createVariant(variant: {
  * DfX Summary API
  */
 export async function getDfxSummary(variantId: string) {
+  if (disableAuth || !supabaseUrl || !supabaseKey) return null;
   const { data, error } = await supabase
     .from('dfx_summaries')
     .select('*')
     .eq('variant_id', variantId)
     .single();
-
   if (error && error.code !== 'PGRST116') throw error;
   return data;
 }
@@ -178,11 +210,11 @@ export async function createDfxSummary(summary: {
   sustainability_score: number;
   recommendations: string[];
 }) {
+  if (disableAuth || !supabaseUrl || !supabaseKey) return { id: 'stub-dfx', ...summary } as any;
   const { data, error } = await supabase
     .from('dfx_summaries')
     .insert([summary])
     .select();
-
   if (error) throw error;
   return data?.[0];
 }
