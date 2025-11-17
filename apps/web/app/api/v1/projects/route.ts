@@ -30,7 +30,12 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json();
+  let body: any = {};
+  try {
+    body = await req.json();
+  } catch {
+    body = {};
+  }
   const id = `proj-${Math.random().toString(16).slice(2,10)}`;
   const project: Project = {
     id,

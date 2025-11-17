@@ -22,10 +22,11 @@ export default function GenerateClient({ projectId }: { projectId: string }) {
   const [materialsText, setMaterialsText] = useState('');
   const [constraintsJson, setConstraintsJson] = useState<Record<string, unknown> | null>(null);
   const pollRef = useRef<number | null>(null);
-  const API_BASE = useMemo(
-    () => process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000',
-    []
-  );
+  const API_BASE = useMemo(() => {
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+    return base; // empty string means use relative Next.js API routes
+  }, []);
+  const stubMode = API_BASE === '';
 
   useEffect(() => {
     return () => {
@@ -61,7 +62,8 @@ export default function GenerateClient({ projectId }: { projectId: string }) {
         options: { guidance_scale, seed, steps, preset, size_cm: sizeCm },
       };
 
-      const res = await fetch(`${API_BASE}/api/v1/runs`, {
+      const runsUrl = `${API_BASE}/api/v1/runs`; // resolves to '/api/v1/runs' in stub mode
+      const res = await fetch(runsUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -76,9 +78,18 @@ export default function GenerateClient({ projectId }: { projectId: string }) {
 
       // Poll run status
       let lastStatus: string | null = null;
+      if (stubMode) {
+        // In stub mode the run is already completed immediately by the route.
+        setProgress(100);
+        setLogs((prev) => [...prev, '✅ (stub) Génération instantanée']);
+        setIsGenerating(false);
+        router.push(`/projects/${projectId}/results`);
+        return;
+      }
       pollRef.current = window.setInterval(async () => {
         try {
-          const r = await fetch(`${API_BASE}/api/v1/runs/${runId}`);
+          const detailUrl = `${API_BASE}/api/v1/runs/${runId}`;
+          const r = await fetch(detailUrl);
           if (!r.ok) throw new Error('poll failed');
           const run = await r.json();
           const status = (run?.status as string) || 'queued';
@@ -111,6 +122,26 @@ export default function GenerateClient({ projectId }: { projectId: string }) {
         ...prev,
         'API indisponible — simulation locale...',
       ]);
+      if (stubMode) {
+        // If even stub call failed, still navigate after simulation
+        const logMessages = [
+          '📝 Extraction du brief...',
+          '🤖 Génération prompts...',
+          '🎨 Génération image...',
+          '📦 Modèle 3D...',
+          '⚖️ Scores DfX...',
+          '✅ Génération terminée !',
+        ];
+        for (let i = 0; i < logMessages.length; i++) {
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          setLogs((prev) => [...prev, logMessages[i] as string]);
+          setProgress(((i + 1) / logMessages.length) * 100);
+        }
+        setIsGenerating(false);
+        router.push(`/projects/${projectId}/results`);
+        return;
+      }
       const logMessages = [
         '📝 Extraction du brief...',
         '🤖 Génération prompts...',

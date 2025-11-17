@@ -5,9 +5,12 @@ import { useAuthChangeListener } from '@kit/supabase/hooks/use-auth-change-liste
 import pathsConfig from '~/config/paths.config';
 
 export function AuthProvider(props: React.PropsWithChildren) {
-  useAuthChangeListener({
-    appHomePath: pathsConfig.app.home,
-  });
+  const disableAuth = process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+  if (!disableAuth) {
+    useAuthChangeListener({
+      appHomePath: pathsConfig.app.home,
+    });
+  }
 
   return props.children;
 }
