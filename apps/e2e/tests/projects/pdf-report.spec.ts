@@ -4,8 +4,9 @@ import { test, expect } from '@playwright/test';
 
 async function ensureRun(page: any, request: any): Promise<string> {
   // Try existing runs first
-  const base = process.env.PLAYWRIGHT_API_BASE || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8001';
-  const existing = await request.get(`${base}/api/v1/runs`);
+  const base = (process.env.PLAYWRIGHT_API_BASE || '').trim();
+  const runsUrl = base ? `${base.replace(/\/$/, '')}/api/v1/runs` : `/api/v1/runs`;
+  const existing = await request.get(runsUrl);
   if (existing.ok()) {
     const runs = await existing.json();
     if (Array.isArray(runs) && runs.length) {
@@ -19,7 +20,7 @@ async function ensureRun(page: any, request: any): Promise<string> {
   await page.getByTestId('generate-run-btn').click();
   await page.waitForURL(/\/projects\/.+\/results$/, { timeout: 120000 });
   // Fetch runs again
-  const after = await request.get(`${base}/api/v1/runs`);
+  const after = await request.get(runsUrl);
   expect(after.ok()).toBeTruthy();
   const runs2 = await after.json();
   expect(Array.isArray(runs2) && runs2.length).toBeTruthy();
@@ -27,9 +28,10 @@ async function ensureRun(page: any, request: any): Promise<string> {
 }
 
 test('pdf report retrieval', async ({ page, request }) => {
-  const base = process.env.PLAYWRIGHT_API_BASE || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8001';
+  const base = (process.env.PLAYWRIGHT_API_BASE || '').trim();
   const runId = await ensureRun(page, request);
-  const resp = await request.get(`${base}/api/v1/runs/${runId}/report.pdf`);
+  const reportUrl = base ? `${base.replace(/\/$/, '')}/api/v1/runs/${runId}/report.pdf` : `/api/v1/runs/${runId}/report.pdf`;
+  const resp = await request.get(reportUrl);
   expect(resp.ok()).toBeTruthy();
   const ct = resp.headers()['content-type'] || resp.headers()['Content-Type'];
   expect(ct).toMatch(/application\/pdf/);
