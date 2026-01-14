@@ -30,6 +30,9 @@ apps/diffusion/result.json
 apps/api/_tmp_*.py
 _archive/
 
+# large vendored repos (keep local only)
+apps/diffusion/TensorRT/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
