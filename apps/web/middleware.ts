@@ -13,7 +13,11 @@ const CSRF_SECRET_COOKIE = 'csrfSecret';
 const NEXT_ACTION_HEADER = 'next-action';
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|images|locales|assets|api/*).*)'],
+  // Exclude static assets and API routes from middleware matching.
+  // The previous negative lookahead used `api/*` which can fail to exclude
+  // `/api` paths reliably in some matcher parsing contexts. Use `api` here
+  // so the matcher will not apply to any path that begins with `/api`.
+  matcher: ['/((?!_next/static|_next/image|images|locales|assets|api).*)'],
 };
 
 const getUser = (request: NextRequest, response: NextResponse) => {
@@ -98,7 +102,13 @@ function isServerAction(request: NextRequest) {
  * Define URL patterns and their corresponding handlers.
  */
 function getPatterns() {
-  const DISABLE_AUTH = process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+  const HAS_SUPABASE = !!(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+  const DEMO_MODE =
+    process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || process.env.DEMO_MODE === 'true';
+  const DISABLE_AUTH =
+    process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true' || DEMO_MODE || !HAS_SUPABASE;
   const bypassAuth = (req: NextRequest) => DISABLE_AUTH || req.headers.get('x-e2e') === '1';
   return [
     {
@@ -186,7 +196,6 @@ function getPatterns() {
         const next = req.nextUrl.pathname;
 
         if (!data?.claims) {
-        if (bypassAuth(req)) return; // allow if auth disabled
           const signIn = pathsConfig.auth.signIn;
           const redirectPath = `${signIn}?next=${next}`;
           return NextResponse.redirect(new URL(redirectPath, origin).href);

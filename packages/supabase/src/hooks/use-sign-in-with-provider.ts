@@ -3,6 +3,7 @@ import type { SignInWithOAuthCredentials } from '@supabase/supabase-js';
 import { useMutation } from '@tanstack/react-query';
 
 import { useSupabase } from './use-supabase';
+import { isSupabaseDisabled } from '../get-supabase-client-keys';
 
 /**
  * @name useSignInWithProvider
@@ -13,6 +14,12 @@ export function useSignInWithProvider() {
   const mutationKey = ['auth', 'sign-in-with-provider'];
 
   const mutationFn = async (credentials: SignInWithOAuthCredentials) => {
+    // Gracefully no-op when auth disabled to avoid runtime errors
+    if (isSupabaseDisabled()) {
+      console.warn('[auth] signInWithProvider ignored: auth disabled');
+      return {} as never;
+    }
+
     const response = await client.auth.signInWithOAuth(credentials);
 
     if (response.error) {

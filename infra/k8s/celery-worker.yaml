@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: makerkit-worker
+  labels:
+    app: makerkit-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: makerkit-worker
+  template:
+    metadata:
+      labels:
+        app: makerkit-worker
+    spec:
+      containers:
+        - name: worker
+          image: makerkit/api:latest
+          command: ["celery","-A","tasks.celery_app","worker","-l","info","-Q","runs"]
+          env:
+            - name: CELERY_ENABLED
+              value: "1"
+            - name: CELERY_BROKER_URL
+              value: "redis://makerkit-redis:6379/0"
+            - name: CELERY_BACKEND_URL
+              value: "redis://makerkit-redis:6379/0"
+            - name: SUPABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: makerkit-secrets
+                  key: supabase_url
+            - name: SUPABASE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: makerkit-secrets
+                  key: supabase_key

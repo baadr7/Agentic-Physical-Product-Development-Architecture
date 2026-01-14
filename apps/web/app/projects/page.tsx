@@ -7,7 +7,7 @@ import type { Project } from '~/lib/types';
 import { apiGetProjects } from '~/lib/api/fastapi';
 
 export default function ProjectsPage() {
-  const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -16,12 +16,11 @@ export default function ProjectsPage() {
       try {
         setLoading(true);
         const items = await apiGetProjects();
-        if (mounted && Array.isArray(items) && items.length) {
-          setProjects(items as Project[]);
-        }
+        if (mounted && Array.isArray(items)) setProjects(items as Project[]);
       } catch (e) {
-        // keep mock fallback
+        // fallback to mock data when API is unavailable
         console.warn('Projects fetch failed, showing mock', e);
+        if (mounted) setProjects(MOCK_PROJECTS);
       } finally {
         if (mounted) setLoading(false);
       }

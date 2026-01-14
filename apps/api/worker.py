@@ -8,42 +8,55 @@ MLFLOW_TRACKING_URI is set.
 import os
 import time
 import requests
-from typing import Any, Dict, Optional
-from random import randint, random
 import uuid
+from random import random, randint
+from typing import Optional, Dict, Any
+
+
+try:
+    from lib.env_utils import _supabase_url, _supabase_key, _supabase_storage_bucket, get_redis_client
+except Exception:
+    from .lib.env_utils import _supabase_url, _supabase_key, _supabase_storage_bucket, get_redis_client
+
+try:
+    from .mistral import generate_prompts, MistralNotConfigured
+except Exception:
+    try:
+        from mistral import generate_prompts, MistralNotConfigured
+    except Exception:
+        generate_prompts = None  # type: ignore
+        MistralNotConfigured = Exception  # type: ignore
 
 try:
     from .scoring import compute_dfx_scores
 except Exception:
-    from scoring import compute_dfx_scores
+    try:
+        from scoring import compute_dfx_scores
+    except Exception:
+        compute_dfx_scores = None  # type: ignore
 
-try:
-    from .mistral import MistralNotConfigured, normalize_brief, generate_prompts
-except Exception:
-    from mistral import MistralNotConfigured, normalize_brief, generate_prompts
 
-SUPABASE_URL = os.getenv('SUPABASE_URL')
-SUPABASE_KEY = os.getenv('SUPABASE_KEY')
+# Feature flags / config read at module import time to avoid NameError in worker
+CAD_ENABLED = os.getenv('CAD_ENABLED', '0') in ('1', 'true', 'True')
+FEM_ENABLED = os.getenv('FEM_ENABLED', '0') in ('1', 'true', 'True')
 MLFLOW_TRACKING_URI = os.getenv('MLFLOW_TRACKING_URI')
-SUPABASE_STORAGE_BUCKET = os.getenv('SUPABASE_STORAGE_BUCKET')
-DIFFUSION_IMAGE_URL = os.getenv('DIFFUSION_IMAGE_URL')  # Optional HTTP endpoint returning base64 image
-CAD_ENABLED = os.getenv('CAD_ENABLED') == '1'
-FEM_ENABLED = os.getenv('FEM_ENABLED') == '1'
+DIFFUSION_IMAGE_URL = os.getenv('DIFFUSION_IMAGE_URL') or os.getenv('DIFFUSION_SERVICE_URL')
 
 
 def supabase_headers():
+    key = _supabase_key() or ''
     return {
-        'apikey': SUPABASE_KEY,
-        'Authorization': f'Bearer {SUPABASE_KEY}',
+        'apikey': key,
+        'Authorization': f'Bearer {key}' if key else '',
         'Content-Type': 'application/json',
         'Accept': 'application/json',
     }
 
 
 def update_run_status_supabase(run_id: str, status: str, extra: dict | None = None):
-    if not SUPABASE_URL:
+    if not (_supabase_url() and _supabase_key()):
         return None
-    url = f"{SUPABASE_URL}/rest/v1/runs?run_id=eq.{run_id}"
+    url = f"{_supabase_url()}/rest/v1/runs?run_id=eq.{run_id}"
     payload = {'status': status}
     if extra:
         payload.update(extra)
@@ -55,9 +68,9 @@ def update_run_status_supabase(run_id: str, status: str, extra: dict | None = No
 
 
 def upsert_prompt_supabase(run_id: str, prompt_text: str, model: str | None = None):
-    if not SUPABASE_URL:
+    if not (_supabase_url() and _supabase_key()):
         return None
-    url = f"{SUPABASE_URL}/rest/v1/prompts"
+    url = f"{_supabase_url()}/rest/v1/prompts"
     headers = supabase_headers()
     headers['Prefer'] = 'return=representation'
     payload = {
@@ -71,9 +84,9 @@ def upsert_prompt_supabase(run_id: str, prompt_text: str, model: str | None = No
 
 
 def fetch_run_supabase(run_id: str) -> Optional[Dict[str, Any]]:
-    if not SUPABASE_URL:
+    if not (_supabase_url() and _supabase_key()):
         return None
-    url = f"{SUPABASE_URL}/rest/v1/runs?run_id=eq.{run_id}&select=*"
+    url = f"{_supabase_url()}/rest/v1/runs?run_id=eq.{run_id}&select=*"
     r = requests.get(url, headers=supabase_headers())
     r.raise_for_status()
     items = r.json()
@@ -83,9 +96,9 @@ def fetch_run_supabase(run_id: str) -> Optional[Dict[str, Any]]:
 
 
 def patch_run_metadata_supabase(run_id: str, metadata: Dict[str, Any]):
-    if not SUPABASE_URL:
+    if not (_supabase_url() and _supabase_key()):
         return None
-    url = f"{SUPABASE_URL}/rest/v1/runs?run_id=eq.{run_id}"
+    url = f"{_supabase_url()}/rest/v1/runs?run_id=eq.{run_id}"
     headers = supabase_headers()
     headers['Prefer'] = 'return=representation'
     payload = {'metadata': metadata}
@@ -118,7 +131,8 @@ def process_run(run_id: str, project_id: str):
             time.sleep(2)
             duration_ms = 2000
 
-        # If possible, generate prompts and a brief DfX summary using Mistral
+        # If possible, generate prompts and a brief DfX summary using the configured LLM
+        # (default is Hugging Face Inference API via apps/api/mistral.py)
         run_row = None
         options = {}
         description = None
@@ -127,6 +141,9 @@ def process_run(run_id: str, project_id: str):
         except Exception as e:
             print('[worker] supabase fetch run failed:', e)
 
+        tenant_id = 'public'
+        if run_row and run_row.get('tenant_id'):
+            tenant_id = run_row.get('tenant_id')
         if run_row:
             # description could be in metadata/parameters or a direct field depending on schema
             description = (run_row.get('description')
@@ -136,6 +153,8 @@ def process_run(run_id: str, project_id: str):
             options = (run_row.get('options') or run_row.get('parameters') or {})
             if description:
                 try:
+                    if not generate_prompts:
+                        raise MistralNotConfigured('generate_prompts unavailable')
                     prompts_out = generate_prompts(description, variants=3)
                     prompts = prompts_out.get('prompts') or []
                     for p in prompts:
@@ -147,18 +166,38 @@ def process_run(run_id: str, project_id: str):
                     meta = run_row.get('metadata') or {}
                     if dfx_summary:
                         meta['dfx_summary'] = dfx_summary
-                    meta['llm_model'] = os.getenv('MISTRAL_MODEL', 'mistral-small-latest')
+                    # Record the provider/model actually used by our LLM bridge.
+                    # NOTE: despite the legacy filename `mistral.py`, the default implementation
+                    # uses Hugging Face (remote inference with optional local transformers fallback).
+                    hf_model = (os.getenv('HUGGINGFACE_MODEL') or '').strip()
+                    hf_base = (os.getenv('HUGGINGFACE_API_BASE') or '').strip()
+                    if hf_model:
+                        meta['llm_provider'] = 'huggingface'
+                        meta['llm_model'] = hf_model
+                        if hf_base:
+                            meta['llm_base'] = hf_base
+                    elif (os.getenv('HF_LOCAL_FALLBACK') or '').strip() == '1':
+                        meta['llm_provider'] = 'huggingface_local'
+                        meta['llm_model'] = (os.getenv('HF_LOCAL_MODEL') or '').strip() or 'unknown'
+                    else:
+                        # Backward-compatible fallback in case users still rely on Mistral envs.
+                        if os.getenv('MISTRAL_API_KEY'):
+                            meta['llm_provider'] = 'mistral'
+                            meta['llm_model'] = os.getenv('MISTRAL_MODEL', 'mistral-small-latest')
+                        else:
+                            meta['llm_provider'] = meta.get('llm_provider') or 'none'
+                            meta['llm_model'] = meta.get('llm_model') or 'none'
                     try:
                         patch_run_metadata_supabase(run_id, meta)
                     except Exception as e:
                         print('[worker] supabase patch metadata failed:', e)
                 except MistralNotConfigured:
-                    print('[worker] Mistral not configured, skipping LLM step')
+                    print('[worker] LLM not configured, skipping LLM step')
                 except Exception as e:
                     print('[worker] LLM prompting failed:', e)
 
         # If Supabase available, create a synthetic variant + DfX summary rows
-        if SUPABASE_URL:
+        if _supabase_url() and _supabase_key():
             try:
                 # Generate synthetic metrics (placeholder for real pipeline outputs)
                 # Base metrics
@@ -182,12 +221,14 @@ def process_run(run_id: str, project_id: str):
                 if 'volume_cm3' in metrics:
                     density_g_per_cm3 = 1.04
                     metrics['mass_g'] = round(float(metrics['volume_cm3']) * density_g_per_cm3, 2)
+                if not compute_dfx_scores:
+                    raise RuntimeError('compute_dfx_scores unavailable')
                 scores = compute_dfx_scores(metrics, (run_row or {}).get('constraints') or {})
 
                 # Insert variant
                 variant_payload = {
                     'run_id': run_id,
-                    'thumbnail_url': 'https://placehold.co/256x256?text=Variant',
+                    'thumbnail_url': 'https://placehold.co/256x256/png?text=Variant',
                     'stl_url': None,
                     'step_url': None,
                     'image_url': None,
@@ -195,15 +236,17 @@ def process_run(run_id: str, project_id: str):
                     'score': scores['overall_score'],
                     'dfx_analysis': scores and f"Fabricability={scores['fabricability_score']} Assemblability={scores['assemblability_score']} Sustainability={scores['sustainability_score']}"
                 }
+                if tenant_id:
+                    variant_payload['tenant_id'] = tenant_id
                 v_headers = supabase_headers(); v_headers['Prefer'] = 'return=representation'
-                v_url = f"{SUPABASE_URL}/rest/v1/variants"
+                v_url = f"{_supabase_url()}/rest/v1/variants"
                 v_res = requests.post(v_url, headers=v_headers, json=variant_payload)
                 v_res.raise_for_status()
                 variant_rows = v_res.json()
                 variant_id = variant_rows[0]['id'] if isinstance(variant_rows, list) and variant_rows else None
 
                 # If storage is configured, upload a tiny ASCII STL and sign a URL
-                if variant_id and SUPABASE_STORAGE_BUCKET:
+                if variant_id and _supabase_storage_bucket():
                     try:
                         object_name = f"variants/{run_id}/{variant_id}/model-{uuid.uuid4().hex[:8]}.stl"
                         if stl_bytes is None:
@@ -211,7 +254,7 @@ def process_run(run_id: str, project_id: str):
                         stl_signed = _upload_and_sign(object_name, stl_bytes, content_type='model/stl')
                         if stl_signed:
                             try:
-                                patch_url = f"{SUPABASE_URL}/rest/v1/variants?id=eq.{variant_id}"
+                                patch_url = f"{_supabase_url()}/rest/v1/variants?id=eq.{variant_id}"
                                 p_headers = supabase_headers(); p_headers['Prefer'] = 'return=representation'
                                 p_res = requests.patch(patch_url, headers=p_headers, json={'stl_url': stl_signed})
                                 p_res.raise_for_status()
@@ -226,7 +269,7 @@ def process_run(run_id: str, project_id: str):
                             step_signed = _upload_and_sign(step_object, step_bytes, content_type='application/step')
                             if step_signed:
                                 try:
-                                    patch_url = f"{SUPABASE_URL}/rest/v1/variants?id=eq.{variant_id}"
+                                    patch_url = f"{_supabase_url()}/rest/v1/variants?id=eq.{variant_id}"
                                     p_headers = supabase_headers(); p_headers['Prefer'] = 'return=representation'
                                     p_res = requests.patch(patch_url, headers=p_headers, json={'step_url': step_signed})
                                     p_res.raise_for_status()
@@ -248,9 +291,11 @@ def process_run(run_id: str, project_id: str):
                                 patch['image_url'] = img_signed
                             if thumb_signed:
                                 patch['thumbnail_url'] = thumb_signed
+                            if tenant_id:
+                                patch['tenant_id'] = tenant_id
                             if patch:
                                 try:
-                                    patch_url = f"{SUPABASE_URL}/rest/v1/variants?id=eq.{variant_id}"
+                                    patch_url = f"{_supabase_url()}/rest/v1/variants?id=eq.{variant_id}"
                                     p_headers = supabase_headers(); p_headers['Prefer'] = 'return=representation'
                                     p_res = requests.patch(patch_url, headers=p_headers, json=patch)
                                     p_res.raise_for_status()
@@ -280,7 +325,7 @@ def process_run(run_id: str, project_id: str):
                         'recommendations': ['Reduce support structures', 'Optimize part count'],
                     }
                     d_headers = supabase_headers(); d_headers['Prefer'] = 'return=representation'
-                    d_url = f"{SUPABASE_URL}/rest/v1/dfx_summaries"
+                    d_url = f"{_supabase_url()}/rest/v1/dfx_summaries"
                     d_res = requests.post(d_url, headers=d_headers, json=dfx_payload)
                     d_res.raise_for_status()
             except Exception as e:
@@ -365,8 +410,103 @@ def _generate_image_bytes(prompt: str, options: Optional[Dict[str, Any]] = None)
 
     Priority:
     - If DIFFUSION_IMAGE_URL is set, POST {prompt} and expect JSON {image_b64}.
-    - Else fetch a placeholder image from placehold.co and return the bytes.
+    - Else generate a local placeholder PNG and return the bytes.
     """
+
+    def _png_dimensions(data: bytes) -> tuple[int, int] | None:
+        # PNG signature + IHDR width/height parsing
+        try:
+            if not data or len(data) < 24:
+                return None
+            if data[:8] != b"\x89PNG\r\n\x1a\n":
+                return None
+            # IHDR chunk starts at byte 8; width/height at bytes 16..24
+            w = int.from_bytes(data[16:20], 'big', signed=False)
+            h = int.from_bytes(data[20:24], 'big', signed=False)
+            if w <= 0 or h <= 0:
+                return None
+            return (w, h)
+        except Exception:
+            return None
+
+    def _looks_like_real_image(data: bytes) -> bool:
+        # Avoid storing/fetching a 1x1 transparent fallback (appears "empty" in UI)
+        dims = _png_dimensions(data)
+        if not dims:
+            return False
+        w, h = dims
+        if w < 64 or h < 64:
+            return False
+        # Small PNGs tend to be placeholders; enforce a minimum payload size
+        if len(data) < 2048:
+            return False
+        return True
+
+    def _local_placeholder_png(text: str, width: int, height: int) -> bytes:
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            import io
+            # Background
+            img = Image.new('RGB', (width, height), color=(32, 41, 58))
+            draw = ImageDraw.Draw(img)
+            # Simple accent bar
+            draw.rectangle([0, 0, width, max(8, height // 28)], fill=(86, 156, 214))
+            # Text
+            try:
+                font = ImageFont.load_default()
+            except Exception:
+                font = None
+            title = "Generated preview"
+            body = (text or "").strip().replace('\n', ' ')
+            if len(body) > 120:
+                body = body[:117] + "..."
+            draw.text((12, 14), title, fill=(255, 255, 255), font=font)
+            draw.text((12, 36), body or "(no prompt)", fill=(220, 230, 245), font=font)
+            # Small watermark-ish hint
+            draw.text((12, height - 18), "(local placeholder)", fill=(170, 180, 195), font=font)
+            buf = io.BytesIO()
+            img.save(buf, format='PNG')
+            return buf.getvalue()
+        except Exception:
+            # Last resort: 1x1 transparent PNG (kept for absolute resilience)
+            return (
+                b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\x0d\n\x2d\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+            )
+    # First try an in-process diffusion generator (if available)
+    try:
+        try:
+            from .diffusion_pipeline import diffusion_generator
+        except Exception:
+            from diffusion_pipeline import diffusion_generator
+        if diffusion_generator:
+            try:
+                steps = int((options or {}).get('steps', 28))
+            except Exception:
+                steps = 28
+            try:
+                width = int((options or {}).get('width', 1080))
+            except Exception:
+                width = 1080
+            try:
+                height = int((options or {}).get('height', 1080))
+            except Exception:
+                height = 1080
+            seed = (options or {}).get('seed')
+            # call generator (best-effort); decode base64 result
+            try:
+                gen_res = diffusion_generator.generate(prompt=prompt, steps=steps, seed=seed, width=width, height=height)
+                b64 = gen_res.get('image_b64')
+                if b64:
+                    import base64
+                    img = base64.b64decode(b64)
+                    if _looks_like_real_image(img):
+                        return img
+            except Exception as e:
+                print('[worker] in-process diffusion failed:', e)
+
+    except Exception:
+        pass
+
     # Try external diffusion HTTP endpoint
     if DIFFUSION_IMAGE_URL:
         try:
@@ -381,41 +521,50 @@ def _generate_image_bytes(prompt: str, options: Optional[Dict[str, Any]] = None)
                 b64 = data.get('image_b64')
                 if b64:
                     import base64
-                    return base64.b64decode(b64)
+                    img = base64.b64decode(b64)
+                    if _looks_like_real_image(img):
+                        return img
         except Exception as e:
             print('[worker] external diffusion endpoint failed:', e)
-    # Fallback: placeholder
+
+    # Fallback: local placeholder (no external network dependency)
     try:
-        placeholder = f"https://placehold.co/1024x768/png?text={requests.utils.quote(prompt[:32] or 'Generated')}"
-        r = requests.get(placeholder, timeout=15)
-        if r.ok:
-            return r.content
+        try:
+            width = int((options or {}).get('width', 1024))
+        except Exception:
+            width = 1024
+        try:
+            height = int((options or {}).get('height', 768))
+        except Exception:
+            height = 768
+        # keep the placeholder reasonably sized
+        width = max(256, min(width, 1536))
+        height = max(256, min(height, 1536))
+        return _local_placeholder_png(prompt, width, height)
     except Exception:
-        pass
-    # Last resort: 1x1 transparent PNG
-    return (
-        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\x0cIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01\x0d\n\x2d\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
-    )
+        return _local_placeholder_png(prompt, 1024, 768)
 
 
 def _upload_and_sign(object_name: str, data: bytes, content_type: str = 'application/octet-stream', expires_in: int = 3600) -> Optional[str]:
-    if not (SUPABASE_URL and SUPABASE_KEY and SUPABASE_STORAGE_BUCKET):
+    if not (_supabase_url() and _supabase_key() and _supabase_storage_bucket()):
         return None
     try:
-        upload_url = f"{SUPABASE_URL}/storage/v1/object/{SUPABASE_STORAGE_BUCKET}/{object_name}"
+        upload_url = f"{_supabase_url()}/storage/v1/object/{_supabase_storage_bucket()}/{object_name}"
+        key = _supabase_key() or ''
         up_headers = {
-            'apikey': SUPABASE_KEY,
-            'Authorization': f'Bearer {SUPABASE_KEY}',
+            'apikey': key,
+            'Authorization': f'Bearer {key}' if key else '',
             'Content-Type': content_type,
         }
         up_res = requests.post(upload_url, headers=up_headers, data=data)
         if up_res.status_code not in (200, 201):
             print('[worker] upload failed:', up_res.status_code, up_res.text)
             return None
-        sign_url = f"{SUPABASE_URL}/storage/v1/object/sign/{SUPABASE_STORAGE_BUCKET}/{object_name}"
+        sign_url = f"{_supabase_url()}/storage/v1/object/sign/{_supabase_storage_bucket()}/{object_name}"
+        key = _supabase_key() or ''
         sig_headers = {
-            'apikey': SUPABASE_KEY,
-            'Authorization': f'Bearer {SUPABASE_KEY}',
+            'apikey': key,
+            'Authorization': f'Bearer {key}' if key else '',
             'Content-Type': 'application/json',
             'Accept': 'application/json',
         }
@@ -427,7 +576,7 @@ def _upload_and_sign(object_name: str, data: bytes, content_type: str = 'applica
         signed_path = data.get('signedURL') or data.get('signedUrl')
         if not signed_path:
             return None
-        return f"{SUPABASE_URL}{signed_path}" if signed_path.startswith('/') else signed_path
+        return f"{_supabase_url()}{signed_path}" if signed_path.startswith('/') else signed_path
     except Exception as e:
         print('[worker] upload_and_sign error:', e)
         return None

@@ -7,7 +7,8 @@ import {
   getServiceRoleKey,
   warnServiceRoleKeyUsage,
 } from '../get-service-role-key';
-import { getSupabaseClientKeys } from '../get-supabase-client-keys';
+import { getSupabaseClientKeys, isSupabaseDisabled } from '../get-supabase-client-keys';
+import { createNullClient } from '../null-client';
 
 /**
  * @name getSupabaseServerAdminClient
@@ -15,6 +16,10 @@ import { getSupabaseClientKeys } from '../get-supabase-client-keys';
  */
 export function getSupabaseServerAdminClient<GenericSchema = Database>() {
   warnServiceRoleKeyUsage();
+
+  if (isSupabaseDisabled()) {
+    return createNullClient() as unknown as ReturnType<typeof createClient<GenericSchema>>;
+  }
 
   const url = getSupabaseClientKeys().url;
 

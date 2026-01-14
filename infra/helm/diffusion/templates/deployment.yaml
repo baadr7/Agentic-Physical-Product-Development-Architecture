@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "makerkit-diffusion.fullname" . }}
+  labels:
+    app: {{ include "makerkit-diffusion.name" . }}
+    chart: {{ include "makerkit-diffusion.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "makerkit-diffusion.name" . }}
+      release: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "makerkit-diffusion.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: diffusion
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: LOG_LEVEL
+              value: {{ .Values.env.LOG_LEVEL | quote }}
+            - name: ENABLE_CONTROLNET
+              value: {{ .Values.env.ENABLE_CONTROLNET | quote }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+{{- if .Values.gpu.enabled }}
+          # GPU request (NVIDIA device plugin)
+          resources:
+            limits:
+              {{ .Values.gpu.resourceName }}: {{ .Values.gpu.count }}
+{{- end }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15

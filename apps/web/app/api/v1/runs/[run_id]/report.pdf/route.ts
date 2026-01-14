@@ -6,13 +6,62 @@ function buildPdf(): Uint8Array {
   return new TextEncoder().encode(pdf);
 }
 
-export async function GET(_: NextRequest, { params }: { params: { run_id: string } }) {
+function getFastApiBaseUrl(): string {
+  const env = (process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '').trim();
+  return env || 'http://127.0.0.1:8000';
+}
+
+function pickUpstreamHeaders(upstream: Headers): Headers {
+  const out = new Headers();
+  const allow = [
+    'content-type',
+    'content-disposition',
+    'cache-control',
+    'etag',
+    'last-modified',
+  ];
+  for (const key of allow) {
+    const v = upstream.get(key);
+    if (v) out.set(key, v);
+  }
+  // Ensure browsers download the file even if upstream forgot the disposition.
+  if (!out.get('content-disposition')) {
+    out.set('content-disposition', 'attachment; filename="report.pdf"');
+  }
+  return out;
+}
+
+async function tryProxy(req: NextRequest, runId: string): Promise<Response | null> {
+  const base = getFastApiBaseUrl().replace(/\/$/, '');
+  const url = `${base}/api/v1/runs/${encodeURIComponent(runId)}/report.pdf`;
+  try {
+    const headers: HeadersInit = {};
+    const auth = req.headers.get('authorization');
+    if (auth) (headers as any).authorization = auth;
+
+    const upstream = await fetch(url, { method: 'GET', headers, cache: 'no-store' });
+    const buf = await upstream.arrayBuffer();
+    return new Response(buf, { status: upstream.status, headers: pickUpstreamHeaders(upstream.headers) });
+  } catch {
+    return null;
+  }
+}
+
+export async function GET(req: NextRequest, { params }: { params: { run_id: string } }) {
+  const runId = params.run_id;
+
+  const proxied = await tryProxy(req, runId);
+  if (proxied) return proxied;
+
+  // Fallback stub PDF when FastAPI is not reachable.
   const bytes = buildPdf();
   return new Response(bytes, {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="report.pdf"',
       'Content-Length': bytes.length.toString(),
+      'X-Report-Mode': 'stub',
     },
   });
 }

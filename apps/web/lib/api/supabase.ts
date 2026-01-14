@@ -1,8 +1,47 @@
+// Lightweight Supabase REST helpers used client-side with anon key.
+
+const supaUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+const supaKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+
+function authHeaders() {
+  return { 'apikey': supaKey, 'Authorization': `Bearer ${supaKey}` };
+}
+
+export async function getTopoptArtifacts(runId: string): Promise<Array<any>> {
+  if (!supaUrl || !supaKey) {
+    console.warn('[supabase] getTopoptArtifacts skipped: missing URL or anon key');
+    return [];
+  }
+  const url = `${supaUrl}/rest/v1/topopt_jobs?run_id=eq.${encodeURIComponent(runId)}&select=*`;
+  const res = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
+  if (!res.ok) {
+    console.warn(`[supabase] getTopoptArtifacts failed: ${res.status}`);
+    return [];
+  }
+  return res.json();
+}
+
+export async function getVariantAssets(variantIds: string[]): Promise<Array<{ variant_id: string; url: string }>> {
+  if (!supaUrl || !supaKey || !variantIds.length) {
+    if (!variantIds.length) return [];
+    console.warn('[supabase] getVariantAssets skipped: missing URL or anon key');
+    return [];
+  }
+  const list = variantIds.map((x) => encodeURIComponent(x)).join(',');
+  const url = `${supaUrl}/rest/v1/variant_assets?variant_id=in.(${list})&asset_type=eq.image/png&select=variant_id,url`;
+  const res = await fetch(url, { headers: authHeaders(), cache: 'no-store' });
+  if (!res.ok) {
+    console.warn(`[supabase] getVariantAssets failed: ${res.status}`);
+    return [];
+  }
+  return res.json();
+}
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const disableAuth = process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true';
+const demoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true';
+const disableAuth = process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true' || demoMode;
 
 // When auth is disabled or no Supabase credentials are provided, avoid initializing
 // the real client (which triggers failed network refresh attempts) and provide

@@ -2,6 +2,55 @@
 
 # NEW! Next.js Supabase SaaS Starter Kit (Lite)
 
+## This Workspace (Web + API)
+
+This repo is used as a monorepo with:
+
+- `apps/web`: Next.js web UI (runs on `http://localhost:3000`)
+- `apps/api`: FastAPI backend (runs on `http://127.0.0.1:8000`)
+
+### Quick start (Windows)
+
+1) Install JS deps (from repo root):
+
+```bash
+pnpm install
+```
+
+2) Start the web app:
+
+```bash
+pnpm --filter web dev
+```
+
+3) Start the API (in a separate terminal):
+
+```powershell
+cd apps/api
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+
+### Environment variables
+
+- Web (typically in `apps/web/.env.local`):
+    - `NEXT_PUBLIC_SUPABASE_URL`
+    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+- API (typically in `apps/api/.env`):
+    - `SUPABASE_URL`
+    - `SUPABASE_KEY` (service role; never expose to the browser)
+    - `SUPABASE_ANON_KEY` (optional)
+    - `HF_TOKEN` (optional, if using Hugging Face)
+
+### Health checks
+
+- API readiness: `GET http://127.0.0.1:8000/api/v1/readiness`
+
+If you need more API details (endpoints, Supabase setup), see `apps/api/README.md`.
+
 Start building your SaaS faster with our Next.js 15 + Supabase starter kit.
 
 👉 **Looking for a full-featured SaaS Starter Kit?** [Check out the complete version](https://makerkit.dev)
@@ -199,6 +248,15 @@ packages/
     └── ...
 ```
 
+## Testing
+
+- Guide de tests pour l'API : `apps/api/TESTING.md` (exécution locale, runner isolé,
+  variables d'environnement utiles). Voir ce fichier pour les commandes PowerShell prêtes à l'emploi.
+
+- Contributing guide: `CONTRIBUTING.md` (how to set up dev environment, run tests, and open PRs).
+
+
+
 For more information about this project structure, see the article [Next.js App Router: Project Structure](https://makerkit.dev/blog/tutorials/nextjs-app-router-project-structure).
 
 ### Environment Variables
@@ -288,6 +346,75 @@ pnpm --filter web supabase db push
 
 This command will push the migration to the Supabase project. You can now apply the migration to the Supabase database.
 
+## API Prototype Extensions (Generative Design / RBAC / JWT)
+
+The repository includes an experimental FastAPI backend (in `apps/api`) with optional JWT authentication and rate limiting for a future generative design pipeline.
+
+### Additional Environment Variables (Backend)
+| Variable | Purpose | Notes |
+|----------|---------|-------|
+| `SUPABASE_URL` | PostgREST base URL | Enables remote persistence for runs/projects/variants |
+| `SUPABASE_KEY` | Service role key | Used for PostgREST and storage signing |
+| `SUPABASE_STORAGE_BUCKET` | Storage bucket name | For export artifacts (presign stub) |
+| `SUPABASE_STRICT` | Fail fast on Supabase errors (`1`/`0`) | When `1`, run creation returns 502 on persistence failure |
+| `API_KEY_REQUIRED` | Enforce `X-API-Key` header | Legacy simple auth (set with `API_KEY_VALUE`) |
+| `API_KEY_VALUE` | Static API key value | Used only when `API_KEY_REQUIRED=1` |
+| `RATE_LIMIT_WINDOW_SECONDS` | Rate limit window length | Default `60` |
+| `RATE_LIMIT_MAX_REQUESTS` | Max POST requests per window | Default `30` |
+| `JWT_REQUIRED` | Enforce JWT bearer auth | When `1`, `Authorization: Bearer <token>` is mandatory |
+| `SUPABASE_JWT_SECRET` | HS256 secret for JWT verify | Must match Supabase JWT secret for local tokens |
+| `DIFFUSION_IMAGE_URL` | External diffusion service URL | Optional, returns inline base64 image |
+| `REDIS_URL` | Redis connection string | Enables Redis-based rate limiting; use `fakeredis://localhost` for tests |
+| `MLFLOW_TRACKING_URI` | MLflow tracking backend | e.g. `file:./mlruns` for local dev |
+| `DIFFUSION_SERVICE_URL` | Base URL of diffusion microservice | Points to `apps/diffusion` deployment |
+
+### RBAC Roles
+When JWT auth is enabled, the backend expects a `role` claim in the token. Supported roles (prototype): `admin`, `designer`, `engineer`, `reviewer`, `reader`.
+
+| Endpoint | Required Roles |
+|----------|----------------|
+| `POST /api/v1/projects` | `admin`, `designer` |
+| `POST /api/v1/runs` | `admin`, `designer`, `engineer` |
+| `POST /api/v1/diffusion/generate` | `admin`, `designer`, `engineer` |
+
+### Generating a Test JWT
+Use PyJWT (installed via `apps/api/requirements.txt`):
+```python
+import jwt
+token = jwt.encode({'sub': 'user-123', 'role': 'designer'}, 'YOUR_DEV_SUPABASE_JWT_SECRET', algorithm='HS256')
+print(token)
+```
+Send with header: `Authorization: Bearer <token>`.
+
+### Multitenant & RBAC Schema (Supabase)
+New migration adds:
+```sql
+CREATE TABLE tenants (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL,
+    created_at timestamptz DEFAULT now()
+);
+CREATE TABLE user_roles (
+    tenant_id uuid REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+    role text NOT NULL CHECK (role IN ('admin','designer','engineer','reviewer','reader')),
+    created_at timestamptz DEFAULT now(),
+    PRIMARY KEY (tenant_id, user_id)
+);
+```
+
+### Test Coverage
+`apps/api/tests/test_auth_rbac.py` includes JWT + role enforcement tests (designer vs reader).
+
+### Next Steps (Optional)
+- Replace in-memory rate limit with Redis.
+- Expand schema for project tenancy binding (`project.tenant_id`).
+- Integrate MLflow / DVC for full run traceability.
+- Implement real diffusion, 3D, FEM pipelines.
+ - Add artifact logging (images/STL) to MLflow runs.
+ - Deploy separate diffusion microservice (see `apps/diffusion`).
+
+
 ## Going to Production
 
 #### 1. Create a Supabase project
@@ -341,3 +468,167 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 No support is provided for this kit. Feel free to open an issue if you have any questions or need help, but there is no guaranteed response time, nor guarantee a fix.
 
 For dedicated support, priority fixes, and advanced features, [check out our full version](https://makerkit.dev).
+
+## Backend API (Extended)
+
+This lite kit now includes a small FastAPI backend under `apps/api` which you can use for prototyping AI-assisted product generation flows.
+
+### Core Endpoints
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/health` | Basic health probe |
+| POST | `/api/v1/projects` | Create a project (in-memory or Supabase) |
+| GET | `/api/v1/projects` | List projects |
+| GET | `/api/v1/projects/{id}` | Fetch a single project |
+| POST | `/api/v1/runs` | Create a design run (background processing stub) |
+| GET | `/api/v1/runs` | List runs (Supabase if configured) |
+| GET | `/api/v1/runs/{run_id}` | Run detail |
+| GET | `/api/v1/runs/{run_id}/variants` | List variants for run (real or synthetic) |
+| GET | `/api/v1/variants/{variant_id}/detail` | Variant + DfX + prompts (404 if missing under Supabase) |
+| POST | `/api/v1/exports/presign` | Stub pre-signed export URL |
+| POST | `/api/v1/llm/normalize-brief` | Optional LLM brief normalization (returns 503 if not configured) |
+
+### Additional Design & Analysis Endpoints
+
+| Method | Path | Description |
+| ------ | ---- | ----------- |
+| GET | `/api/v1/runs/{run_id}/variants` | Synthetic + persisted variants listing |
+| GET | `/api/v1/variants/{variant_id}/detail` | Variant detail (DfX summary + prompts) with LRU caching |
+| POST | `/api/v1/variants/{variant_id}/feedback` | Submit user rating; updates adaptive weights + overall score |
+| GET | `/api/v1/variants/{variant_id}/feedback/history` | Historical feedback entries (Supabase table `feedback_history`) |
+| POST | `/api/v1/scoring/weights` | Manually override scoring weights (admin) |
+| POST | `/api/v1/scoring/advanced` | Multi-objective scoring with current adaptive weights |
+| GET | `/api/v1/pareto/{run_id}` | Pareto front of generated variants (multi-objective) |
+| GET | `/api/v1/report/dfx/{run_id}` | Narrative DfX report summary (synthetic text) |
+| POST | `/api/v1/import/variants` | Import dataset (CSV/XLSX) and generate scored variant set |
+| GET | `/api/v1/fem/solve-general` | General FEM (plate) synthetic or real solver fallback |
+| POST | `/api/v1/topopt/advanced-compliance` | Advanced (synthetic) compliance topology optimization iterations |
+| POST | `/api/v1/exports/presign` | Pre-sign stub (supports pdf, zip, stl, step, fem-stress, cad-step, cad-stl, image) |
+| GET | `/api/v1/metrics/summary` | Aggregated latency + p50/p95 per path |
+| GET | `/api/v1/health/deep` | Deep integration health (Supabase, Redis, MLflow, Diffusion) |
+| GET | `/admin/metrics` | Per-endpoint metrics (avg, p95) |
+| GET | `/admin/kpi` | Basic KPIs (runs completion, DfX events) |
+| GET | `/api/v1/scoring/weights/history` | Chronological scoring weight changes (adaptive + manual) |
+
+### Adaptive Scoring & Feedback
+
+User feedback on variants feeds an exponential moving average (EMA) to gently adjust aesthetic/sustainability weighting while penalizing excessive fabricability dominance. Updated weights are embedded in variant metrics and can be manually overridden via the scoring weights endpoint. Historical ratings persist in `feedback_history` and each weight drift (adaptive or manual override) is logged to `weights_history` (Supabase or in-memory fallback) and surfaced via `/api/v1/scoring/weights/history`.
+
+`/api/v1/scoring/weights/history` supports optional filters: `run_id`, `variant_id`, `limit` (<=500), and `offset` for pagination. Example:
+
+```bash
+curl "http://localhost:8001/api/v1/scoring/weights/history?variant_id=var-123&limit=50"
+```
+
+### Variant Detail Caching
+
+An in-memory LRU cache (`VARIANT_DETAIL_CACHE_MAX`, default 64) reduces Supabase round trips for frequently accessed variant detail pages. Disable or tune by environment variable. Weight and feedback history endpoints are not cached to ensure freshness.
+
+### Deep Health Diagnostics
+
+`/api/v1/health/deep` surfaces statuses for Redis, Supabase REST, MLflow tracking URI initialization, and diffusion pipeline availability. Returns `degraded` if any configured component is failing, otherwise `ok`.
+
+### Observability
+
+- Lightweight in-memory metrics store captures per-path latency for `/api/v1/metrics/summary`.
+- Optional Prometheus instrumentation (if `prometheus_client` installed) exposed at `/metrics`.
+
+### Roadmap (Prototype to Production)
+
+- Replace synthetic CAD/FEM/topology stubs with real solvers.
+- Longitudinal analysis dashboards on `weights_history` / `feedback_history` trends.
+- Add authentication & tenant-aware isolation to all modifying endpoints.
+- Introduce streaming diffusion & control-net conditioning.
+- Expand health diagnostics (GPU memory, queue depth, model version).
+
+### Environment Variables (API)
+
+| Name | Purpose | Notes |
+| ---- | ------- | ----- |
+| `SUPABASE_URL` | Supabase REST URL | Enables persistence when set |
+| `SUPABASE_KEY` | Service role key | Required for RLS bypass on server |
+| `SUPABASE_STORAGE_BUCKET` | Storage bucket name | For signing export URLs |
+| `SUPABASE_STRICT` | Fail fast on Supabase write errors | Set to `1` to disable in-memory fallback for runs |
+| `DIFFUSION_IMAGE_URL` | External diffusion image generation endpoint | If set, backend will attempt inline PNG creation |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OpenTelemetry collector endpoint | Enables tracing when present |
+| `MISTRAL_API_KEY` | Mistral AI key | Enables LLM brief normalization |
+| `API_KEY_REQUIRED` | Require X-API-Key header on POST | Set to `1` to enforce |
+| `API_KEY_VALUE` | Expected API key value | Used when requirement enabled |
+| `RATE_LIMIT_WINDOW_SECONDS` | Rate limit window length | Default `60` |
+| `RATE_LIMIT_MAX_REQUESTS` | Max POST requests per window per IP | Default `30` |
+
+If `SUPABASE_STRICT=1` is set and Supabase persistence for a run fails, the API returns HTTP 502 instead of silently falling back to in-memory storage.
+
+### Python Version (API)
+
+- Use Python 3.10–3.12 for the FastAPI backend. Several ML packages (e.g. `mlflow`, `torch`, `diffusers`) do not yet publish wheels for Python 3.14.
+- Recommended on Windows:
+    - Create a virtualenv with Python 3.12
+    - Install API deps: `pip install -r apps/api/requirements.txt -r apps/api/requirements-dev.txt`
+
+### Smoke Testing the API
+
+A PowerShell script `tooling/scripts/smoke_api.ps1` exercises core endpoints.
+
+Run it after starting the API server:
+
+```powershell
+cd apps/api
+. .venv/Scripts/Activate.ps1
+python -m uvicorn main:app --host 127.0.0.1 --port 8001
+```
+
+In a new terminal:
+
+```powershell
+pwsh -File tooling/scripts/smoke_api.ps1 -BaseUrl 'http://127.0.0.1:8001'
+```
+
+Skip run creation / variant checks:
+
+```powershell
+pwsh -File tooling/scripts/smoke_api.ps1 -SkipRun
+```
+
+### Frontend Integration
+
+The web app auto-detects a development FastAPI backend at `http://127.0.0.1:8001` if `NEXT_PUBLIC_API_BASE_URL` is not set. To point explicitly to a remote API:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=https://api.example.com
+```
+
+### Observability & Logging
+
+Structured JSON logs are emitted by the API (`event` keys for errors). Provide an OTLP endpoint to enable tracing.
+
+### Error Handling Improvements
+
+Variant detail now returns:
+* `404` if variant not found under Supabase.
+* `503` on unexpected backend/Supabase errors.
+* Synthetic placeholder only when Supabase is not configured.
+
+Run creation under `SUPABASE_STRICT=1` fails fast (HTTP 502) on persistence errors.
+
+### Auth & Rate Limiting (Basic)
+
+If `API_KEY_REQUIRED=1` and `API_KEY_VALUE` are set, all POST endpoints demand `X-API-Key` header and respond with `401` on mismatch.
+
+Simple in-memory rate limiting applies to POST endpoints (default 30 requests / 60s per client IP). Override via environment variables above. Exceeding limit returns `429`.
+
+### Testing Additions
+
+Added pytest file `apps/api/tests/test_strict_mode.py` covering strict run creation and missing variant detail behavior.
+
+Added Playwright smoke tests in `apps/e2e/tests/runs-variant.spec.ts` for the runs index and synthetic variant detail page. These are non-blocking in CI (warnings only) and serve as a baseline for future expansion.
+
+### Next Steps / Hardening Ideas
+
+* Add authentication / JWT verification to API endpoints.
+* Implement rate limiting (e.g. with Redis) for POST routes.
+* Replace synthetic image/variant generation with actual pipeline.
+* Add Playwright tests for the new run/variant pages.
+* Add unit tests for strict mode error paths.
+

@@ -17,6 +17,9 @@ const config = {
   reactStrictMode: true,
   /** Enables hot reloading for local packages without a build step */
   transpilePackages: INTERNAL_PACKAGES,
+  turbopack: {
+    resolveExtensions: ['.ts', '.tsx', '.js', '.jsx'],
+  },
   images: {
     remotePatterns: getRemotePatterns(),
   },
@@ -33,9 +36,6 @@ const config = {
   experimental: {
     mdxRs: true,
     reactCompiler: ENABLE_REACT_COMPILER,
-    turbo: {
-      resolveExtensions: ['.ts', '.tsx', '.js', '.jsx'],
-    },
     optimizePackageImports: [
       'recharts',
       'lucide-react',
@@ -71,6 +71,9 @@ function getRemotePatterns() {
     });
   }
 
+  // In dev, we still want to allow the configured Supabase hostname (https)
+  // so Next/Image can render Storage assets and other Supabase-hosted images.
+  // Also allow the placeholder host used by the API stubs.
   return IS_PRODUCTION
     ? remotePatterns
     : [
@@ -81,6 +84,11 @@ function getRemotePatterns() {
         {
           protocol: 'http',
           hostname: 'localhost',
+        },
+        ...(remotePatterns.length ? remotePatterns : []),
+        {
+          protocol: 'https',
+          hostname: 'placehold.co',
         },
       ];
 }

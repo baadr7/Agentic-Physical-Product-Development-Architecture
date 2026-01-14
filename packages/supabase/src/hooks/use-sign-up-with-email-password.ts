@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 
 import { useSupabase } from './use-supabase';
+import { isSupabaseDisabled } from '../get-supabase-client-keys';
 
 interface Credentials {
   email: string;
@@ -18,6 +19,10 @@ export function useSignUpWithEmailAndPassword() {
   const mutationKey = ['auth', 'sign-up-with-email-password'];
 
   const mutationFn = async (params: Credentials) => {
+    if (isSupabaseDisabled()) {
+      console.warn('[auth] signUpWithEmailPassword ignored: auth disabled');
+      return {} as never;
+    }
     const { emailRedirectTo, captchaToken, ...credentials } = params;
 
     const response = await client.auth.signUp({

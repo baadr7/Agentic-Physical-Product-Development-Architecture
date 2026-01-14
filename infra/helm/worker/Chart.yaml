@@ -1,0 +1,7 @@
+apiVersion: v2
+name: makerkit-worker
+version: 0.1.0
+appVersion: "0.1.0"
+description: Helm chart for Makerkit Celery worker
+keywords: [makerkit, worker, celery]
+type: application

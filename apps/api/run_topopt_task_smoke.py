@@ -8,10 +8,44 @@ This script mirrors the test harness but is runnable as a script to observe prin
 import sys
 import time
 import uuid
+import os
+
+# Ensure repository root on sys.path so `apps.api` imports work when running script
+root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if root not in sys.path:
+    sys.path.insert(0, root)
+# Ensure Celery import won't fail in minimal envs (inject before importing tasks)
+if 'celery' not in sys.modules:
+    import types as _types
+    _mod = _types.ModuleType('celery')
+    class _DummyCelery:
+        def __init__(self, *a, **k):
+            class _Conf(dict):
+                def __getattr__(self, name):
+                    return self.get(name)
+                def __setattr__(self, name, value):
+                    self[name] = value
+            self.conf = _Conf()
+            self.conf['task_default_queue'] = None
+        def task(self, *a, **k):
+            def _decorator(fn):
+                def f(*args, **kwargs):
+                    return fn(*args, **kwargs)
+                class _TaskWrapper:
+                    def __init__(self, f):
+                        self.run = f
+                        self.__wrapped__ = f
+                    def __call__(self, *args, **kwargs):
+                        return f(*args, **kwargs)
+                return _TaskWrapper(fn)
+            return _decorator
+    _mod.Celery = _DummyCelery
+    sys.modules['celery'] = _mod
 
 try:
     from apps.api import tasks
 except Exception:
+    # fallback to direct module import if package layout differs
     from api import tasks
 
 

@@ -3,6 +3,7 @@ import type { JwtPayload } from '@supabase/supabase-js';
 import { useQuery } from '@tanstack/react-query';
 
 import { useSupabase } from './use-supabase';
+import { isSupabaseDisabled } from '../get-supabase-client-keys';
 
 const queryKey = ['supabase:user'];
 
@@ -13,11 +14,21 @@ const queryKey = ['supabase:user'];
  */
 export function useUser(initialData?: JwtPayload | null) {
   const client = useSupabase();
+  const disabled = isSupabaseDisabled();
 
   const queryFn = async () => {
+    if (disabled) {
+      // Provide a stable fake user for UI-only local development.
+      return {
+        sub: 'dev-user',
+        email: 'dev@example.com',
+        role: 'authenticated',
+        aud: 'authenticated',
+      } as JwtPayload;
+    }
+
     const response = await client.auth.getClaims();
 
-    // this is most likely a session error or the user is not logged in
     if (response.error) {
       return undefined;
     }
@@ -32,9 +43,9 @@ export function useUser(initialData?: JwtPayload | null) {
   return useQuery({
     queryFn,
     queryKey,
-    initialData,
-    refetchInterval: false,
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
+    initialData: disabled ? undefined : initialData,
+    refetchInterval: disabled ? false : undefined,
+    refetchOnMount: disabled ? false : undefined,
+    refetchOnWindowFocus: disabled ? false : undefined,
   });
 }

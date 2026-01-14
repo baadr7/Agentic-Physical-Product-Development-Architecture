@@ -1,0 +1,9 @@
+# Ignore large or generated artifacts not tracked by DVC
+*.tmp
+*.log
+__pycache__/
+node_modules/
+.env
+venv/
+.venv/
+models/artifacts/*.onnx

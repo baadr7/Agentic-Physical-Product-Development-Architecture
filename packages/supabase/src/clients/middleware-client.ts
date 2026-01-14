@@ -5,7 +5,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 import { Database } from '../database.types';
-import { getSupabaseClientKeys } from '../get-supabase-client-keys';
+import { getSupabaseClientKeys, isSupabaseDisabled } from '../get-supabase-client-keys';
+import { createNullClient } from '../null-client';
 
 /**
  * Creates a middleware client for Supabase.
@@ -17,6 +18,10 @@ export function createMiddlewareClient<GenericSchema = Database>(
   request: NextRequest,
   response: NextResponse,
 ) {
+  if (isSupabaseDisabled()) {
+    return createNullClient() as unknown as ReturnType<typeof createServerClient<GenericSchema>>;
+  }
+
   const keys = getSupabaseClientKeys();
 
   return createServerClient<GenericSchema>(keys.url, keys.anonKey, {

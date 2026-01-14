@@ -21,13 +21,26 @@ export const generateMetadata = async () => {
 };
 
 const NotFoundPage = async () => {
-  const client = getSupabaseServerClient();
-
-  const { data } = await client.auth.getClaims();
+  let claims: any = null;
+  const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supaKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // Only attempt to fetch claims if Supabase is configured
+  if (supaUrl && supaKey) {
+    try {
+      const client = getSupabaseServerClient();
+      const { data } = await client.auth.getClaims();
+      claims = data?.claims ?? null;
+    } catch (e) {
+      // Graceful fallback when Supabase isn't reachable or auth fails
+      claims = null;
+    }
+  } else {
+    claims = null;
+  }
 
   return (
     <div className={'flex h-screen flex-1 flex-col'}>
-      <SiteHeader user={data?.claims} />
+      <SiteHeader user={claims || undefined} />
 
       <div
         className={

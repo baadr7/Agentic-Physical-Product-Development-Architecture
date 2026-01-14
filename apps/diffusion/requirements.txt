@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+Pillow
+python-dotenv
+diffusers
+transformers
+accelerate
+torch; sys_platform != 'win32'
+supabase

@@ -1,0 +1,31 @@
+# Python
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+
+# Virtualenvs
+**/.venv/
+**/venv/
+
+# Node
+**/node_modules/
+**/.next/
+**/.turbo/
+**/.pnpm-store/
+
+# Data/artifacts
+**/mlruns/
+**/mlruns_test/
+**/data/raw/
+**/data/processed/
+**/generated_outputs/
+**/test-results/
+
+# VCS/editor
+.git/
+.vscode/
+.DS_Store

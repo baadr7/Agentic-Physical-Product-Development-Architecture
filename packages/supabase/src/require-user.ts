@@ -28,7 +28,18 @@ export async function requireUser(client: SupabaseClient): Promise<
         }
     )
 > {
-  const { data, error } = await client.auth.getClaims();
+  let data: { claims?: JwtPayload } | null = null;
+  let error: unknown = null;
+  try {
+    const res = await client.auth.getClaims();
+    data = res?.data ?? null;
+    error = res?.error ?? null;
+  } catch (e) {
+    // Network/config errors (e.g. wrong Supabase URL, local Supabase not running)
+    // can throw at fetch() level in server components. Treat as unauthenticated.
+    error = e;
+    data = null;
+  }
 
   if (!data?.claims || error) {
     return {

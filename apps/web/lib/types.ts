@@ -37,6 +37,10 @@ export interface Variant {
   step_url?: string;
   thumbnail_url: string;
   image_url?: string;
+  /** Optional raw base64 PNG bytes (no data: prefix) */
+  image_b64?: string;
+  /** Optional raw base64 PNG bytes (no data: prefix) */
+  thumbnail_b64?: string;
   metrics: {
     mass?: number; // kg (legacy mock)
     mass_g?: number; // grams (from worker)

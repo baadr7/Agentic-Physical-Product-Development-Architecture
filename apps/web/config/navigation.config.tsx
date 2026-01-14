@@ -1,4 +1,4 @@
-import { Home, User } from 'lucide-react';
+import { Home, User, Folder, PlusCircle, ActivitySquare } from 'lucide-react';
 import { z } from 'zod';
 
 import { NavigationConfigSchema } from '@kit/ui/navigation-schema';
@@ -9,10 +9,10 @@ const iconClasses = 'w-4';
 
 const routes = [
   {
-    label: 'common:routes.application',
+    label: 'Navigation',
     children: [
       {
-        label: 'common:routes.home',
+        label: 'Vision globale',
         path: pathsConfig.app.home,
         Icon: <Home className={iconClasses} />,
         end: true,
@@ -20,10 +20,33 @@ const routes = [
     ],
   },
   {
-    label: 'common:routes.settings',
+    label: 'Projets',
     children: [
       {
-        label: 'common:routes.profile',
+        label: 'Tous les projets',
+        path: '/projects',
+        Icon: <Folder className={iconClasses} />,
+        end: true,
+      },
+      {
+        label: 'Créer un projet',
+        path: '/projects/create',
+        Icon: <PlusCircle className={iconClasses} />,
+        end: true,
+      },
+      {
+        label: 'Runs',
+        path: '/dashboard/runs',
+        Icon: <ActivitySquare className={iconClasses} />,
+        end: true,
+      },
+    ],
+  },
+  {
+    label: 'Paramètres',
+    children: [
+      {
+        label: 'Profil',
         path: pathsConfig.app.profileSettings,
         Icon: <User className={iconClasses} />,
       },

@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: makerkit-api
+    env: docker
+    rootDir: .
+    dockerfilePath: apps/api/Dockerfile
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: LOAD_DOTENV
+        value: "0"
+      - key: REQUIRE_REAL_IMAGES
+        value: "1"
+      - key: HF_IMAGE_PROVIDER
+        value: "hf-inference"
+      - key: HF_IMAGE_TIMEOUT
+        value: "30"
+      # Set these as Render dashboard secrets:
+      # - HF_TOKEN
+      # - HF_IMAGE_MODEL
+      # - SUPABASE_URL
+      # - SUPABASE_KEY
+      # - SUPABASE_STORAGE_BUCKET

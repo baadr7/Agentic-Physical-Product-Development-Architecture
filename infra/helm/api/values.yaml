@@ -1,0 +1,37 @@
+image:
+  repository: makerkit/api
+  tag: latest
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+service:
+  type: ClusterIP
+  port: 8000
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 256Mi
+
+env:
+  LOG_LEVEL: info
+  JWT_REQUIRED: "0"
+  TOPOPT_SOLVER: "0"
+
+metrics:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+  hosts:
+    - host: api.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []

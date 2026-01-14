@@ -9,6 +9,8 @@ import { createI18nServerInstance } from '~/lib/i18n/i18n.server';
 import { generateRootMetadata } from '~/lib/root-metdata';
 
 import '../styles/globals.css';
+import NavBar from '~/components/NavBar';
+import AppShell from '~/components/AppShell';
 
 export default async function RootLayout({
   children,
@@ -17,13 +19,15 @@ export default async function RootLayout({
 }) {
   const { language } = await createI18nServerInstance();
   const theme = await getTheme();
-  const className = getClassName(theme);
+  const className = getBaseClassName();
+  const hideTopNav = process.env.NEXT_PUBLIC_HIDE_TOP_NAV === 'true';
 
   return (
-    <html lang={language} className={className}>
+    <html lang={language} className={className} suppressHydrationWarning>
       <body>
         <RootProviders theme={theme} lang={language}>
-          {children}
+          {!hideTopNav && <NavBar />}
+          <AppShell>{children}</AppShell>
         </RootProviders>
 
         <Toaster richColors={true} theme={theme} position="top-center" />
@@ -32,23 +36,14 @@ export default async function RootLayout({
   );
 }
 
-function getClassName(theme?: string) {
-  const dark = theme === 'dark';
-  const light = !dark;
-
+function getBaseClassName() {
   const font = [sans.variable, heading.variable].reduce<string[]>(
-    (acc, curr) => {
-      if (acc.includes(curr)) return acc;
-
-      return [...acc, curr];
-    },
+    (acc, curr) => (acc.includes(curr) ? acc : [...acc, curr]),
     [],
   );
 
-  return cn('bg-background min-h-screen antialiased', ...font, {
-    dark,
-    light,
-  });
+  // Theme classes (dark/light) are applied client-side by next-themes.
+  return cn('bg-background min-h-screen antialiased', ...font);
 }
 
 async function getTheme() {

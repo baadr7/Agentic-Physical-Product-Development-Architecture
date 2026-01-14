@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: makerkit-redis
+  labels:
+    app: makerkit-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: makerkit-redis
+  template:
+    metadata:
+      labels:
+        app: makerkit-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          readinessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: makerkit-redis
+spec:
+  selector:
+    app: makerkit-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP

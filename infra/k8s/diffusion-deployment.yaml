@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: makerkit-diffusion
+  labels:
+    app: makerkit-diffusion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: makerkit-diffusion
+  template:
+    metadata:
+      labels:
+        app: makerkit-diffusion
+    spec:
+      containers:
+        - name: diffusion
+          image: makerkit/diffusion:latest
+          ports:
+            - containerPort: 8001
+          env:
+            - name: DIFFUSION_BACKEND
+              value: "diffusers"
+            - name: DIFFUSION_MODEL
+              value: "stabilityai/stable-diffusion-2-1"
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+            requests:
+              cpu: "500m"
+              memory: "2Gi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: makerkit-diffusion
+spec:
+  selector:
+    app: makerkit-diffusion
+  ports:
+    - port: 80
+      targetPort: 8001
+  type: ClusterIP

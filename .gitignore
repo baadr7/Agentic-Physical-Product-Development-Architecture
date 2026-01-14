@@ -13,6 +13,10 @@ coverage
 out/
 next-env.d.ts
 
+# e2e outputs
+apps/e2e/test-results/
+apps/e2e/playwright-report/
+
 # production
 build
 
@@ -20,14 +24,33 @@ build
 .DS_Store
 *.pem
 
+# local generated artifacts
+out_*.png
+apps/diffusion/result.json
+apps/api/_tmp_*.py
+_archive/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# caches
+**/.eslintcache
+**/.cache/
+**/.pnpm-store/
+
 # local env files
 .env*.local
+
+# env files (secrets)
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.test
+!.env.*.test
 
 # vercel
 .vercel
@@ -38,6 +61,10 @@ yarn-error.log*
 # turbo
 .turbo
 
+# supabase local temp
+supabase/.temp/
+apps/**/supabase/.temp/
+
 # ide
 .idea/
 .vscode/
@@ -45,3 +72,48 @@ yarn-error.log*
 
 # contentlayer
 .contentlayer/
+
+# python (api)
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.cover
+*.py,cover
+.hypothesis/
+.ipynb_checkpoints/
+**/.venv/
+**/.venv*/
+venv/
+venv*/
+ENV/
+env/
+mlruns/
+mlruns_test/
+
+# local datasets / artifacts
+data/raw/
+data/processed/
+apps/api/generated_outputs/
+
+# local generated images
+apps/api/e2e_run-*_variant.png
+scripts/output*.png
+keyboard.png
+
+# local patch bundles
+.patches/*.bundle
+.patches/*.bundle.zip
+
+# web node_modules at app level
+apps/web/node_modules/
+apps/api/node_modules/
+
+# test artifacts
+test-results/

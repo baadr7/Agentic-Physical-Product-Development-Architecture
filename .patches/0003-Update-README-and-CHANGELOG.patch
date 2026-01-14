@@ -1,0 +1,74 @@
+From 00c9b667d6ec723fafa63016aa50b6349cd23131 Mon Sep 17 00:00:00 2001
+From: gbuomprisco <giancarlopsk@gmail.com>
+Date: Mon, 24 Feb 2025 09:52:20 +0700
+Subject: [PATCH 03/20] Update README and CHANGELOG
+
+---
+ CHANGELOG.md | 14 ++++++++++++++
+ README.md    |  7 ++++---
+ package.json |  1 +
+ 3 files changed, 19 insertions(+), 3 deletions(-)
+ create mode 100644 CHANGELOG.md
+
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+new file mode 100644
+index 0000000..5217458
+--- /dev/null
++++ b/CHANGELOG.md
+@@ -0,0 +1,14 @@
++# CHANGELOG
++
++## 0.2.0 (2025-02-24)
++
++- Updated dependencies
++- Updated EsLint configuration to v9
++- Updated TailwindCSS to v4
++- Updated dark theme colors to a less contrasting color palette
++- Updated the UI components to use the new spacing system in TailwindCSS v4
++- Minor bug fixes ported from the full kit
++
++## 0.1.0
++
++- Initial release of the Next.js Supabase SaaS Kit Lite template
+\ No newline at end of file
+diff --git a/README.md b/README.md
+index f1db154..11844f2 100644
+--- a/README.md
++++ b/README.md
+@@ -9,7 +9,8 @@ Start building your SaaS faster with our Next.js 15 + Supabase starter kit.
+ ⭐️ **Why Developers Trust Makerkit:**
+ - Production-grade architecture decisions
+ - Comprehensive TypeScript setup
+-- Modern stack: Next.js 15, Supabase, TailwindCSS
++- Modern stack: Next.js 15, Supabase, TailwindCSS v4
++- Quality Code tooling: ESLint v9, Prettier, strict TypeScript, etc.
+ - Regular updates and active maintenance
+ 
+ PS: the documentation for this kit is still being updated, so please check back later for more details.
+@@ -18,10 +19,10 @@ PS: the documentation for this kit is still being updated, so please check back
+ 
+ ### Core Architecture
+ - 🏗️ Next.js 15 + Turborepo monorepo setup
+-- 🎨 Shadcn UI components with TailwindCSS
++- 🎨 Shadcn UI components with TailwindCSS v4
+ - 🔐 Supabase authentication & basic DB
+ - 🌐 i18n translations (client + server)
+-- ✨ Full TypeScript + ESLint + Prettier configuration
++- ✨ Full TypeScript + ESLint v9 + Prettier configuration
+ 
+ ### Key Features
+ - 👤 User authentication flow
+diff --git a/package.json b/package.json
+index 536c08a..a37526b 100644
+--- a/package.json
++++ b/package.json
+@@ -1,5 +1,6 @@
+ {
+   "name": "next-supabase-saas-kit-turbo-lite",
++  "version": "0.2.0",
+   "private": true,
+   "sideEffects": false,
+   "engines": {
+-- 
+2.51.1.windows.1
+

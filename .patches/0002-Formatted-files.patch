@@ -1,0 +1,351 @@
+From 39c3adcf16502d39612bc48df4059076d46ae61e Mon Sep 17 00:00:00 2001
+From: gbuomprisco <giancarlopsk@gmail.com>
+Date: Mon, 24 Feb 2025 09:47:54 +0700
+Subject: [PATCH 02/20] Formatted files
+
+---
+ .../_components/site-page-header.tsx          |  4 +-
+ apps/web/app/(marketing)/faq/page.tsx         |  2 +-
+ apps/web/app/(marketing)/page.tsx             | 12 ++--
+ apps/web/app/auth/layout.tsx                  |  6 +-
+ apps/web/app/error.tsx                        |  2 +-
+ apps/web/app/global-error.tsx                 |  2 +-
+ .../_components/dashboard-demo-charts.tsx     | 16 ++---
+ apps/web/app/home/settings/layout.tsx         |  4 +-
+ apps/web/app/layout.tsx                       |  2 +-
+ .../password/update-password-form.tsx         |  2 +-
+ packages/ui/src/makerkit/shiki.tsx            | 65 -------------------
+ packages/ui/src/shadcn/alert.tsx              |  7 +-
+ tooling/eslint/nextjs.js                      |  2 +-
+ 13 files changed, 27 insertions(+), 99 deletions(-)
+ delete mode 100644 packages/ui/src/makerkit/shiki.tsx
+
+diff --git a/apps/web/app/(marketing)/_components/site-page-header.tsx b/apps/web/app/(marketing)/_components/site-page-header.tsx
+index f451b0b..35e21ed 100644
+--- a/apps/web/app/(marketing)/_components/site-page-header.tsx
++++ b/apps/web/app/(marketing)/_components/site-page-header.tsx
+@@ -20,7 +20,7 @@ export function SitePageHeader({
+       >
+         <h1
+           className={
+-            'font-heading text-3xl font-medium tracking-tighter dark:text-white xl:text-5xl'
++            'font-heading text-3xl font-medium tracking-tighter xl:text-5xl dark:text-white'
+           }
+         >
+           {title}
+@@ -28,7 +28,7 @@ export function SitePageHeader({
+ 
+         <h2
+           className={
+-            'text-lg tracking-tight text-muted-foreground 2xl:text-2xl'
++            'text-muted-foreground text-lg tracking-tight 2xl:text-2xl'
+           }
+         >
+           {subtitle}
+diff --git a/apps/web/app/(marketing)/faq/page.tsx b/apps/web/app/(marketing)/faq/page.tsx
+index 658bae1..20aa4d8 100644
+--- a/apps/web/app/(marketing)/faq/page.tsx
++++ b/apps/web/app/(marketing)/faq/page.tsx
+@@ -135,7 +135,7 @@ function FaqItem({
+         </div>
+       </summary>
+ 
+-      <div className={'flex flex-col space-y-2 py-1 text-muted-foreground'}>
++      <div className={'text-muted-foreground flex flex-col space-y-2 py-1'}>
+         <Trans i18nKey={item.answer} defaults={item.answer} />
+       </div>
+     </details>
+diff --git a/apps/web/app/(marketing)/page.tsx b/apps/web/app/(marketing)/page.tsx
+index 9915d9f..6320bc9 100644
+--- a/apps/web/app/(marketing)/page.tsx
++++ b/apps/web/app/(marketing)/page.tsx
+@@ -43,7 +43,7 @@ function Home() {
+             <Image
+               priority
+               className={
+-                'rounded-2xl border border-gray-200 dark:border-primary/10'
++                'dark:border-primary/10 rounded-2xl border border-gray-200'
+               }
+               width={3558}
+               height={2222}
+@@ -65,7 +65,7 @@ function Home() {
+                   The ultimate SaaS Starter Kit
+                 </b>
+                 .{' '}
+-                <span className="font-normal text-muted-foreground">
++                <span className="text-muted-foreground font-normal">
+                   Unleash your creativity and build your SaaS faster than ever
+                   with Makerkit.
+                 </span>
+@@ -94,9 +94,7 @@ function Home() {
+               />
+ 
+               <FeatureCard
+-                className={
+-                  'relative col-span-2 overflow-hidden lg:col-span-1'
+-                }
++                className={'relative col-span-2 overflow-hidden lg:col-span-1'}
+                 label={'Multi Tenancy'}
+                 description={`Multi tenant memberships for your SaaS business.`}
+               />
+@@ -128,8 +126,8 @@ function MainCallToActionButton() {
+ 
+             <ArrowRightIcon
+               className={
+-                'h-4 animate-in fade-in slide-in-from-left-8' +
+-                ' delay-1000 duration-1000 zoom-in fill-mode-both'
++                'animate-in fade-in slide-in-from-left-8 h-4' +
++                ' zoom-in fill-mode-both delay-1000 duration-1000'
+               }
+             />
+           </span>
+diff --git a/apps/web/app/auth/layout.tsx b/apps/web/app/auth/layout.tsx
+index c655cb1..ff7b33b 100644
+--- a/apps/web/app/auth/layout.tsx
++++ b/apps/web/app/auth/layout.tsx
+@@ -3,11 +3,7 @@ import { AuthLayoutShell } from '@kit/auth/shared';
+ import { AppLogo } from '~/components/app-logo';
+ 
+ function AuthLayout({ children }: React.PropsWithChildren) {
+-  return (
+-    <AuthLayoutShell Logo={AppLogo}>
+-      {children}
+-    </AuthLayoutShell>
+-  );
++  return <AuthLayoutShell Logo={AppLogo}>{children}</AuthLayoutShell>;
+ }
+ 
+ export default AuthLayout;
+diff --git a/apps/web/app/error.tsx b/apps/web/app/error.tsx
+index bc4f007..e486c6f 100644
+--- a/apps/web/app/error.tsx
++++ b/apps/web/app/error.tsx
+@@ -47,7 +47,7 @@ const ErrorPage = ({
+                 </Heading>
+               </div>
+ 
+-              <p className={'text-lg text-muted-foreground'}>
++              <p className={'text-muted-foreground text-lg'}>
+                 <Trans i18nKey={'common:genericErrorSubHeading'} />
+               </p>
+             </div>
+diff --git a/apps/web/app/global-error.tsx b/apps/web/app/global-error.tsx
+index 08e1607..119ab08 100644
+--- a/apps/web/app/global-error.tsx
++++ b/apps/web/app/global-error.tsx
+@@ -49,7 +49,7 @@ const GlobalErrorPage = ({
+                     </Heading>
+                   </div>
+ 
+-                  <p className={'text-lg text-muted-foreground'}>
++                  <p className={'text-muted-foreground text-lg'}>
+                     <Trans i18nKey={'common:genericErrorSubHeading'} />
+                   </p>
+                 </div>
+diff --git a/apps/web/app/home/_components/dashboard-demo-charts.tsx b/apps/web/app/home/_components/dashboard-demo-charts.tsx
+index 43e3409..436853b 100644
+--- a/apps/web/app/home/_components/dashboard-demo-charts.tsx
++++ b/apps/web/app/home/_components/dashboard-demo-charts.tsx
+@@ -47,7 +47,7 @@ export default function DashboardDemo() {
+   return (
+     <div
+       className={
+-        'flex flex-col space-y-4 pb-36 duration-500 animate-in fade-in'
++        'animate-in fade-in flex flex-col space-y-4 pb-36 duration-500'
+       }
+     >
+       <div
+@@ -423,7 +423,7 @@ function CustomersTable() {
+           <TableRow key={customer.name}>
+             <TableCell className={'flex flex-col'}>
+               <span>{customer.name}</span>
+-              <span className={'text-sm text-muted-foreground'}>
++              <span className={'text-muted-foreground text-sm'}>
+                 {customer.email}
+               </span>
+             </TableCell>
+@@ -482,7 +482,7 @@ function Trend(
+       case 'up':
+         return <ArrowUp className={'h-3 w-3 text-green-500'} />;
+       case 'down':
+-        return <ArrowDown className={'h-3 w-3 text-destructive'} />;
++        return <ArrowDown className={'text-destructive h-3 w-3'} />;
+       case 'stale':
+         return <Menu className={'h-3 w-3 text-orange-500'} />;
+     }
+@@ -685,10 +685,10 @@ export function VisitorsChart() {
+       <CardFooter>
+         <div className="flex w-full items-start gap-2 text-sm">
+           <div className="grid gap-2">
+-            <div className="flex items-center gap-2 font-medium leading-none">
++            <div className="flex items-center gap-2 leading-none font-medium">
+               Trending up by 5.2% this month <TrendingUp className="h-4 w-4" />
+             </div>
+-            <div className="flex items-center gap-2 leading-none text-muted-foreground">
++            <div className="text-muted-foreground flex items-center gap-2 leading-none">
+               January - June 2024
+             </div>
+           </div>
+@@ -836,13 +836,13 @@ export function PageViewsChart() {
+               <button
+                 key={chart}
+                 data-active={activeChart === chart}
+-                className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t px-6 py-4 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0 sm:px-8 sm:py-6"
++                className="data-[active=true]:bg-muted/50 relative z-30 flex flex-1 flex-col justify-center gap-1 border-t px-6 py-4 text-left even:border-l sm:border-t-0 sm:border-l sm:px-8 sm:py-6"
+                 onClick={() => setActiveChart(chart)}
+               >
+-                <span className="text-xs text-muted-foreground">
++                <span className="text-muted-foreground text-xs">
+                   {chartConfig[chart].label}
+                 </span>
+-                <span className="text-lg font-bold leading-none sm:text-3xl">
++                <span className="text-lg leading-none font-bold sm:text-3xl">
+                   {total[key as keyof typeof total].toLocaleString()}
+                 </span>
+               </button>
+diff --git a/apps/web/app/home/settings/layout.tsx b/apps/web/app/home/settings/layout.tsx
+index a7b698e..baa09f4 100644
+--- a/apps/web/app/home/settings/layout.tsx
++++ b/apps/web/app/home/settings/layout.tsx
+@@ -6,9 +6,7 @@ import { withI18n } from '~/lib/i18n/with-i18n';
+ function UserSettingsLayout(props: React.PropsWithChildren) {
+   return (
+     <>
+-      <PageHeader
+-        description={<AppBreadcrumbs />}
+-      />
++      <PageHeader description={<AppBreadcrumbs />} />
+ 
+       {props.children}
+     </>
+diff --git a/apps/web/app/layout.tsx b/apps/web/app/layout.tsx
+index 8959f4f..23bd2b1 100644
+--- a/apps/web/app/layout.tsx
++++ b/apps/web/app/layout.tsx
+@@ -45,7 +45,7 @@ function getClassName(theme?: string) {
+     [],
+   );
+ 
+-  return cn('min-h-screen bg-background antialiased', ...font, {
++  return cn('bg-background min-h-screen antialiased', ...font, {
+     dark,
+     light,
+   });
+diff --git a/packages/features/accounts/src/components/password/update-password-form.tsx b/packages/features/accounts/src/components/password/update-password-form.tsx
+index 8591d66..94c8854 100644
+--- a/packages/features/accounts/src/components/password/update-password-form.tsx
++++ b/packages/features/accounts/src/components/password/update-password-form.tsx
+@@ -74,7 +74,7 @@ export const UpdatePasswordForm = ({
+     // if the user does not have an email assigned, it's possible they
+     // don't have an email/password factor linked, and the UI is out of sync
+     if (!email) {
+-      /* eslint-disable @typescript-eslint/prefer-promise-reject-errors */
++       
+       return Promise.reject(t(`cannotUpdatePassword`));
+     }
+ 
+diff --git a/packages/ui/src/makerkit/shiki.tsx b/packages/ui/src/makerkit/shiki.tsx
+deleted file mode 100644
+index 4868505..0000000
+--- a/packages/ui/src/makerkit/shiki.tsx
++++ /dev/null
+@@ -1,65 +0,0 @@
+-import { createOnigurumaEngine } from 'shiki';
+-import { createHighlighterCoreSync } from 'shiki/core';
+-import bash from 'shiki/langs/bash.mjs';
+-import dockerfile from 'shiki/langs/dockerfile.mjs';
+-import js from 'shiki/langs/javascript.mjs';
+-import json from 'shiki/langs/json.mjs';
+-import jsx from 'shiki/langs/jsx.mjs';
+-import md from 'shiki/langs/markdown.mjs';
+-import mdx from 'shiki/langs/mdx.mjs';
+-import php from 'shiki/langs/php.mjs';
+-import sql from 'shiki/langs/sql.mjs';
+-import toml from 'shiki/langs/toml.mjs';
+-import tsx from 'shiki/langs/tsx.mjs';
+-import ts from 'shiki/langs/typescript.mjs';
+-import yaml from 'shiki/langs/yaml.mjs';
+-import dark from 'shiki/themes/github-dark.mjs';
+-import light from 'shiki/themes/github-light.mjs';
+-
+-const engine = await createOnigurumaEngine(import('shiki/wasm'));
+-
+-const shiki = createHighlighterCoreSync({
+-  themes: [dark, light],
+-  langs: [
+-    js,
+-    jsx,
+-    ts,
+-    md,
+-    bash,
+-    tsx,
+-    json,
+-    sql,
+-    yaml,
+-    mdx,
+-    php,
+-    toml,
+-    dockerfile,
+-  ],
+-  engine,
+-});
+-
+-export default function Shiki(
+-  props: React.PropsWithChildren<{
+-    code: string;
+-    title?: string;
+-    language?: string;
+-    highlight?: Array<number | Array<number>>;
+-  }>,
+-) {
+-  const { code, title, language } = props;
+-
+-  const html = shiki.codeToHtml(code, {
+-    lang: language ?? 'text',
+-    theme: dark.name as string,
+-  });
+-
+-  return (
+-    <div className="shiki-container my-0 border-transparent">
+-      {title ? <div className="shiki-title">{title}</div> : null}
+-      <pre
+-        className="shiki-code [&>*]:!bg-background !text-sm"
+-        dangerouslySetInnerHTML={{ __html: html }}
+-      />
+-    </div>
+-  );
+-}
+diff --git a/packages/ui/src/shadcn/alert.tsx b/packages/ui/src/shadcn/alert.tsx
+index 0a0a8ce..a01ca93 100644
+--- a/packages/ui/src/shadcn/alert.tsx
++++ b/packages/ui/src/shadcn/alert.tsx
+@@ -47,9 +47,10 @@ const AlertTitle: React.FC<React.ComponentPropsWithRef<'h5'>> = ({
+ );
+ AlertTitle.displayName = 'AlertTitle';
+ 
+-const AlertDescription: React.FC<
+-  React.ComponentPropsWithRef<'div'>
+-> = ({ className, ...props }) => (
++const AlertDescription: React.FC<React.ComponentPropsWithRef<'div'>> = ({
++  className,
++  ...props
++}) => (
+   <div
+     className={cn('text-sm font-normal [&_p]:leading-relaxed', className)}
+     {...props}
+diff --git a/tooling/eslint/nextjs.js b/tooling/eslint/nextjs.js
+index acdc685..bc1cd04 100644
+--- a/tooling/eslint/nextjs.js
++++ b/tooling/eslint/nextjs.js
+@@ -9,7 +9,7 @@ const nextEslintConfig = [
+     extends: ['next/core-web-vitals', 'next/typescript'],
+     rules: {
+       '@next/next/no-html-link-for-pages': 'off',
+-      'no-undef': 'off'
++      'no-undef': 'off',
+     },
+   }),
+ ];
+-- 
+2.51.1.windows.1
+

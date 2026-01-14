@@ -3,6 +3,7 @@ import type { SignInWithPasswordlessCredentials } from '@supabase/supabase-js';
 import { useMutation } from '@tanstack/react-query';
 
 import { useSupabase } from './use-supabase';
+import { isSupabaseDisabled } from '../get-supabase-client-keys';
 
 /**
  * @name useSignInWithOtp
@@ -13,6 +14,11 @@ export function useSignInWithOtp() {
   const mutationKey = ['auth', 'sign-in-with-otp'];
 
   const mutationFn = async (credentials: SignInWithPasswordlessCredentials) => {
+    if (isSupabaseDisabled()) {
+      console.warn('[auth] signInWithOtp ignored: auth disabled');
+      return {} as never;
+    }
+
     const result = await client.auth.signInWithOtp(credentials);
 
     if (result.error) {
