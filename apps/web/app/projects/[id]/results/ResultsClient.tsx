@@ -25,6 +25,14 @@ export default function ResultsClient({ projectId }: { projectId: string }) {
 
   const API_BASE = useMemo(() => process.env.NEXT_PUBLIC_API_BASE_URL || '', []);
 
+  const latestRunId = useMemo(() => {
+    if (!runs.length) return null;
+    const latest = runs
+      .slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+    return latest?.run_id || null;
+  }, [runs]);
+
   // Lazy load glTF viewer client-side only when needed
   const GltfViewer = useMemo(() => dynamic(() => import('~/components/GltfViewer'), { ssr: false }), []);
 
@@ -546,12 +554,19 @@ export default function ResultsClient({ projectId }: { projectId: string }) {
               <tbody className="divide-y divide-slate-200">
                 {runs.map((run) => {
                   const variant = variants.find((v) => v.run_id === run.run_id);
+
+                  const isLatest = Boolean(latestRunId) && run.run_id === latestRunId;
+                  const hasVariants = isLatest && variants.length > 0;
+                  const status = String(run.status || '').toLowerCase();
+                  const inferredCompleted = hasVariants && (status === '' || status === 'queued' || status === 'pending');
+                  const effectiveStatus = (inferredCompleted ? 'completed' : status) as string;
+
                   const statusColor =
-                    run.status === 'completed'
+                    effectiveStatus === 'completed'
                       ? 'bg-green-100 text-green-800'
-                      : run.status === 'processing'
+                      : effectiveStatus === 'processing'
                       ? 'bg-yellow-100 text-yellow-800'
-                      : run.status === 'failed'
+                      : effectiveStatus === 'failed'
                       ? 'bg-red-100 text-red-800'
                       : 'bg-slate-100 text-slate-800';
 
@@ -563,11 +578,11 @@ export default function ResultsClient({ projectId }: { projectId: string }) {
                       <td className="px-6 py-4 text-sm">
                         <span className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold ${statusColor}`}>
                           <span className={`h-2 w-2 rounded-full ${
-                            run.status === 'completed' ? 'bg-green-500' :
-                            run.status === 'processing' ? 'bg-yellow-500 animate-pulse' :
-                            run.status === 'failed' ? 'bg-red-500' : 'bg-slate-400'
+                            effectiveStatus === 'completed' ? 'bg-green-500' :
+                            effectiveStatus === 'processing' ? 'bg-yellow-500 animate-pulse' :
+                            effectiveStatus === 'failed' ? 'bg-red-500' : 'bg-slate-400'
                           }`} />
-                          {run.status === 'completed' ? 'Terminé' : run.status === 'processing' ? 'En cours' : run.status === 'failed' ? 'Erreur' : 'En attente'}
+                          {effectiveStatus === 'completed' ? 'Terminé' : effectiveStatus === 'processing' ? 'En cours' : effectiveStatus === 'failed' ? 'Erreur' : 'En attente'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
@@ -576,7 +591,7 @@ export default function ResultsClient({ projectId }: { projectId: string }) {
                           : '-'}
                       </td>
                       <td className="px-6 py-4 text-sm font-bold text-blue-600">
-                        {variant?.score || '-'}
+                        {typeof variant?.score === 'number' ? variant.score.toFixed(1) : '-'}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <button className="text-blue-600 hover:text-blue-800 font-semibold">

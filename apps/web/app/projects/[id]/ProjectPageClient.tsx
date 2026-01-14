@@ -5,7 +5,38 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MOCK_PROJECT } from '~/lib/mock-data';
 import { Project, Run } from '~/lib/types';
-import { apiDeleteProject, apiGetProject, apiGetRuns, apiPresignExportUrl, apiReportPdfUrl } from '~/lib/api/fastapi';
+import { apiDeleteProject, apiGetProject, apiGetRuns, apiGetVariants, apiPresignExportUrl, apiReportPdfUrl } from '~/lib/api/fastapi';
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const i = nextIndex;
+      nextIndex += 1;
+      if (i >= items.length) return;
+      results[i] = await fn(items[i]!);
+    }
+  }
+
+  const workers = Array.from({ length: Math.max(1, limit) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+function safeParseMs(startedAt?: string, finishedAt?: string): number | null {
+  if (!startedAt || !finishedAt) return null;
+  const start = Date.parse(startedAt);
+  const end = Date.parse(finishedAt);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  const delta = end - start;
+  return delta >= 0 ? delta : null;
+}
 
 export default function ProjectPageClient({ projectId }: { projectId: string }) {
   const router = useRouter();
@@ -19,6 +50,7 @@ export default function ProjectPageClient({ projectId }: { projectId: string }) 
   const [exporting, setExporting] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [inferredCompletedRunIds, setInferredCompletedRunIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let mounted = true;
@@ -49,7 +81,25 @@ export default function ProjectPageClient({ projectId }: { projectId: string }) 
             created_at: r.created_at || r.started_at || new Date().toISOString(),
           })) as Run[];
         filtered.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
-        if (mounted) setRuns(filtered);
+        if (mounted) {
+          setRuns(filtered);
+
+          // Infer completion when the run status is stale (queued/pending) but variants exist.
+          const candidates = filtered.filter((r) => {
+            const s = String(r.status || '').toLowerCase();
+            return (s === 'queued' || s === 'pending') && Boolean(r.run_id);
+          });
+          const inferred = new Set<string>();
+          await mapWithConcurrency(candidates, 4, async (r) => {
+            try {
+              const variants = await apiGetVariants(r.run_id);
+              if (Array.isArray(variants) && variants.length > 0) inferred.add(r.run_id);
+            } catch {
+              // ignore
+            }
+          });
+          setInferredCompletedRunIds(inferred);
+        }
       } catch (e) {
         console.error('Failed to load runs', e);
       } finally {
@@ -63,12 +113,35 @@ export default function ProjectPageClient({ projectId }: { projectId: string }) 
   }, [projectId]);
 
   const totalRuns = runs.length;
-  const completedRuns = runs.filter((r) => r.status === 'completed').length;
+  const completedRuns = useMemo(() => {
+    const count = runs.filter((r) => {
+      const s = String(r.status || '').toLowerCase();
+      if (s === 'completed' || s === 'success' || s === 'succeeded') return true;
+      if (inferredCompletedRunIds.has(r.run_id)) return true;
+      return false;
+    }).length;
+    return count;
+  }, [runs, inferredCompletedRunIds]);
   const avgDuration = useMemo(() => {
     if (!runs.length) return 0;
-    const ms = runs.reduce((s, r) => s + (r.duration_ms || 0), 0) / runs.length;
+    const durations: number[] = [];
+    for (const r of runs) {
+      const s = String(r.status || '').toLowerCase();
+      const isCompleted = s === 'completed' || s === 'success' || s === 'succeeded' || inferredCompletedRunIds.has(r.run_id);
+      if (!isCompleted) continue;
+
+      const direct = typeof r.duration_ms === 'number' && Number.isFinite(r.duration_ms) ? r.duration_ms : null;
+      if (direct !== null && direct >= 0) {
+        durations.push(direct);
+        continue;
+      }
+      const parsed = safeParseMs(r.started_at, r.finished_at);
+      if (parsed !== null) durations.push(parsed);
+    }
+    if (!durations.length) return 0;
+    const ms = durations.reduce((sum, v) => sum + v, 0) / durations.length;
     return Math.round(ms);
-  }, [runs]);
+  }, [runs, inferredCompletedRunIds]);
 
   // Run creation is handled from the Générer page; this page links to it.
 
