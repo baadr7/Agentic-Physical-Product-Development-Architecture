@@ -6,6 +6,29 @@ import Link from 'next/link'
 import { IconChart, IconFolder } from '~/components/icons'
 import { MOCK_PROJECTS as INITIAL_PROJECTS, MOCK_RUNS as INITIAL_RUNS } from '~/lib/mock-data'
 import { Run, Project } from '~/lib/types'
+import { apiGetProjects, apiGetRuns, apiGetVariants } from '~/lib/api/fastapi'
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let nextIndex = 0
+
+  async function worker() {
+    while (true) {
+      const i = nextIndex
+      nextIndex += 1
+      if (i >= items.length) return
+      results[i] = await fn(items[i]!)
+    }
+  }
+
+  const workers = Array.from({ length: Math.max(1, limit) }, () => worker())
+  await Promise.all(workers)
+  return results
+}
 
 // Keep the dashboard focused on global overview only
 type View = 'overview' | 'projects'
@@ -77,26 +100,48 @@ export default function DashboardClient() {
   useEffect(() => {
     const syncFromApi = async () => {
       try {
-        const base = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://127.0.0.1:8000'
-        const runsResp = await fetch(`${base}/api/v1/runs`)
-        if (runsResp.ok) {
-          const apiRuns = await runsResp.json()
-          if (Array.isArray(apiRuns)) {
-            // Map API runs to our Run type; keep optimistic local adds
-            const mappedRuns = apiRuns.map((r: RunOut) => ({
-              id: r.run_id,
-              run_id: r.run_id,
-              project_id: r.project_id ?? '',
-              status: (r.status as Run['status']) ?? 'queued',
-              started_at: r.started_at ?? r.created_at ?? new Date().toISOString(),
-              finished_at: r.finished_at ?? undefined,
-              duration_ms: r.duration_ms,
-              parameters: r.options || {},
-              metadata: r.metadata || {},
-              created_at: r.created_at ?? new Date().toISOString(),
-            }))
-            setRuns(mappedRuns)
-          }
+        const [apiProjects, apiRunsRaw] = await Promise.all([
+          apiGetProjects().catch(() => null),
+          apiGetRuns().catch(() => null),
+        ])
+
+        if (Array.isArray(apiProjects)) {
+          setProjects(apiProjects as Project[])
+          setSelectedProjectId((prev) => prev ?? (apiProjects[0]?.id ?? null))
+        }
+
+        if (Array.isArray(apiRunsRaw)) {
+          const apiRuns = apiRunsRaw as any[]
+          const mappedRuns = apiRuns.map((r: RunOut) => ({
+            id: r.run_id,
+            run_id: r.run_id,
+            project_id: r.project_id ?? '',
+            status: (r.status as Run['status']) ?? 'queued',
+            started_at: r.started_at ?? r.created_at ?? new Date().toISOString(),
+            finished_at: r.finished_at ?? undefined,
+            duration_ms: r.duration_ms,
+            parameters: r.options || {},
+            metadata: r.metadata || {},
+            created_at: r.created_at ?? new Date().toISOString(),
+          }))
+
+          // Infer completed when variants exist but status is queued/pending.
+          const candidates = mappedRuns.filter((r) => {
+            const s = String(r.status || '').toLowerCase()
+            return (s === 'queued' || s === 'pending') && Boolean(r.run_id)
+          })
+          await mapWithConcurrency(candidates, 4, async (r) => {
+            try {
+              const vs = await apiGetVariants(r.run_id)
+              if (Array.isArray(vs) && vs.length > 0) {
+                ;(r as any).status = 'completed'
+              }
+            } catch {
+              // ignore
+            }
+          })
+
+          setRuns(mappedRuns)
         }
       } catch (err) {
         console.log('API runs fetch failed, using local state:', err)
