@@ -40,6 +40,12 @@ const routes = [
         Icon: <ActivitySquare className={iconClasses} />,
         end: true,
       },
+      {
+        label: 'ADT (Stage-gate)',
+        path: '/adt',
+        Icon: <ActivitySquare className={iconClasses} />,
+        end: true,
+      },
     ],
   },
   {

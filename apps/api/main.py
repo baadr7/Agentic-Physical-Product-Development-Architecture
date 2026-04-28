@@ -575,6 +575,164 @@ JWT_REQUIRED = is_jwt_required()
 AUDIT_LOG: list[dict] = []  # simple in-memory audit events (fallback when Supabase not set)
 METRICS: dict[str, dict] = {}
 
+# In-memory job tracker (fallback when Celery is disabled)
+JOBS: dict[str, dict] = {}
+
+
+class ScenarioOut(BaseModel):
+    id: str
+    name: str
+    description: str | None = None
+    industry: str | None = None
+    authority_level: str | None = None
+    default_dfx_weights: dict = {}
+    default_autonomy: dict = {}
+    default_constraints: dict | None = None
+    default_simulation_targets: dict | None = None
+    default_standards: list[str] = []
+
+
+SCENARIOS: list[ScenarioOut] = [
+    ScenarioOut(
+        id='hydraulic_manifold',
+        name='Collecteur hydraulique (manifold)',
+        description='Pièce sous pression, exigences fortes en sécurité, fatigue et assemblage.',
+        industry='Hydraulique',
+        authority_level='Engineering + QA',
+        default_dfx_weights={
+            'dfm': 0.28,
+            'dfa': 0.18,
+            'dfr': 0.24,
+            'dfc': 0.10,
+            'dfs': 0.20,
+        },
+        default_autonomy={
+            'orchestrator': 'Assist',
+            'requirements': 'Assist',
+            'concept_generation': 'Copilot',
+            'dfx': 'Copilot',
+            'simulation': 'Assist',
+            'documentation': 'Assist',
+        },
+        default_constraints={
+            'max_pressure_bar': 210,
+            'proof_pressure_bar': 315,
+            'max_temp_c': 110,
+            'mass_target_g': 950,
+            'cost_target_eur': 45,
+            'min_wall_mm': 7,
+            'surface_ra_um': 1.6,
+            'applicable_standards': ['ISO 4413', 'ISO 12100'],
+        },
+        default_simulation_targets={
+            'max_deflection_mm': 0.25,
+            'min_safety_factor': 2.0,
+        },
+        default_standards=['ISO 4413', 'ISO 12100'],
+    ),
+    ScenarioOut(
+        id='aerospace_bracket',
+        name='Équerre aéronautique (support)',
+        description='Optimisation masse/rigidité, contraintes matériaux/process, traçabilité.',
+        industry='Aéronautique',
+        authority_level='Engineering + Certification',
+        default_dfx_weights={
+            'dfm': 0.22,
+            'dfa': 0.12,
+            'dfr': 0.30,
+            'dfc': 0.08,
+            'dfs': 0.28,
+        },
+        default_autonomy={
+            'orchestrator': 'Assist',
+            'requirements': 'Assist',
+            'concept_generation': 'Copilot',
+            'dfx': 'Copilot',
+            'simulation': 'Copilot',
+            'documentation': 'Assist',
+        },
+        default_constraints={
+            'max_temp_c': 120,
+            'mass_target_g': 250,
+            'surface_ra_um': 3.2,
+            'applicable_standards': ['ISO 12100'],
+        },
+        default_simulation_targets={
+            'max_deflection_mm': 0.30,
+            'min_safety_factor': 1.8,
+        },
+        default_standards=['ISO 12100'],
+    ),
+]
+
+
+def _job_emit(job_id: str, payload: dict):
+    job = JOBS.get(job_id)
+    if not job:
+        return
+    ev = dict(payload or {})
+    ev.setdefault('ts', datetime.now(UTC).isoformat())
+    job.setdefault('events', []).append(ev)
+    if len(job['events']) > 500:
+        job['events'] = job['events'][-250:]
+
+
+def _job_set_state(job_id: str, state: str, info: dict | None = None):
+    job = JOBS.get(job_id)
+    if not job:
+        return
+    job['status'] = state
+    if info is not None:
+        job['progress'] = info
+
+
+def _patch_run_supabase_best_effort(run_id: str, payload: dict):
+    if not _supabase_is_configured():
+        return None
+    url = os.getenv('SUPABASE_URL')
+    ep = f"{url}/rest/v1/runs?run_id=eq.{run_id}"
+    headers = supabase_headers(); headers['Prefer'] = 'return=representation'
+
+    def _patch(p: dict):
+        return requests.patch(ep, headers=headers, json=p, timeout=6)
+
+    payload2 = dict(payload or {})
+    r = _patch(payload2)
+    if not r.ok:
+        # Retry on unknown column errors by removing the inferred key.
+        for _ in range(6):
+            body = ''
+            try:
+                body = r.text or ''
+            except Exception:
+                body = ''
+            unknown_col = None
+            try:
+                import re
+                m = re.search(r"could not find the '([^']+)' column", body, flags=re.IGNORECASE)
+                if m:
+                    unknown_col = m.group(1)
+            except Exception:
+                unknown_col = None
+
+            if not unknown_col:
+                break
+            payload2.pop(unknown_col, None)
+            r = _patch(payload2)
+            if r.ok:
+                break
+
+    r.raise_for_status()
+    items = r.json()
+    return items[0] if isinstance(items, list) and items else items
+
+
+@app.get('/api/v1/scenarios', response_model=list[ScenarioOut])
+def list_scenarios(request: Request):
+    """Curated scenario presets for the ADT stage-gate flow."""
+    _audit('scenario.listed', request, {})
+    return SCENARIOS
+
 # Prometheus instrumentation (lazy if library missing)
 if Counter and Histogram:
     REQUEST_COUNT = Counter('api_requests_total', 'Total HTTP requests', ['method','path','status'])
@@ -1659,6 +1817,323 @@ def get_run(run_id: str, request: Request):
     raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
 
 
+class RunUpdate(BaseModel):
+    description: str | None = None
+    constraints: dict | None = None
+    options: dict | None = None
+    metadata: dict | None = None
+    status: str | None = None
+
+
+@app.patch('/api/v1/runs/{run_id}', response_model=RunOut)
+def patch_run(run_id: str, payload: RunUpdate, request: Request):
+    """Update a run's configuration (constraints/options/metadata) for ADT stage-gate."""
+    _load_local_state_if_needed()
+    tenant_id = getattr(request.state, 'user', {}).get('tenant') or 'public'
+
+    patch: dict = {}
+    if payload.description is not None:
+        patch['description'] = payload.description
+    if payload.constraints is not None:
+        patch['constraints'] = payload.constraints
+    if payload.metadata is not None:
+        patch['metadata'] = payload.metadata
+    if payload.options is not None:
+        # Supabase schema drift: some environments use `parameters`, others `options`.
+        patch['parameters'] = payload.options
+        patch['options'] = payload.options
+    if payload.status is not None:
+        patch['status'] = payload.status
+
+    updated_row = None
+    if patch and _supabase_is_configured():
+        try:
+            # Ensure tenant check before patching.
+            row = fetch_run_supabase(run_id)
+            if row and row.get('tenant_id') and row.get('tenant_id') != tenant_id:
+                raise HTTPException(status_code=403, detail=_tr(request,'forbidden cross-tenant run'))
+            updated_row = _patch_run_supabase_best_effort(run_id, patch)
+        except HTTPException:
+            raise
+        except Exception as e:
+            print('Supabase patch_run error:', e)
+
+    # Update in-memory copy too (best-effort)
+    for r in RUNS:
+        if r.get('run_id') == run_id:
+            if r.get('tenant_id') and r.get('tenant_id') != tenant_id:
+                raise HTTPException(status_code=403, detail=_tr(request,'forbidden cross-tenant run'))
+            if payload.description is not None:
+                r['description'] = payload.description
+            if payload.constraints is not None:
+                r['constraints'] = payload.constraints
+            if payload.options is not None:
+                r['options'] = payload.options
+                r['parameters'] = payload.options
+            if payload.metadata is not None:
+                r['metadata'] = payload.metadata
+            if payload.status is not None:
+                r['status'] = payload.status
+            break
+
+    _audit('run.updated', request, {'run_id': run_id, 'keys': list(patch.keys())})
+    return get_run(run_id, request)
+
+
+def _run_adt_job_in_process(job_id: str, run_id: str, project_id: str | None, tenant_id: str | None = None):
+    started_at = datetime.now(UTC)
+    JOBS[job_id]['started_at'] = started_at.isoformat()
+    _job_emit(job_id, {'agent': 'orchestrator', 'state': 'STARTED', 'message': 'Orchestration démarrée'})
+
+    try:
+        _job_set_state(job_id, 'PROCESSING', {'stage': 'requirements'})
+        _job_emit(job_id, {'agent': 'requirements', 'state': 'RUN', 'message': 'Normalisation des exigences'})
+
+        _job_set_state(job_id, 'PROCESSING', {'stage': 'concept_generation'})
+        _job_emit(job_id, {'agent': 'concept_generation', 'state': 'RUN', 'message': 'Génération concepts'})
+
+        # Run the existing pipeline (best-effort)
+        try:
+            process_run(run_id, project_id or '')
+        except Exception as e:
+            _job_emit(job_id, {'agent': 'orchestrator', 'state': 'WARN', 'message': f'process_run warning: {e}'})
+
+        # Ensure some variants exist for comparison
+        try:
+            req = VariantGenRequest(count=4)
+            _generate_variants_for_run(run_id, req)
+        except Exception as e:
+            _job_emit(job_id, {'agent': 'concept_generation', 'state': 'WARN', 'message': f'variants warning: {e}'})
+
+        _job_set_state(job_id, 'SUCCESS', {'stage': 'completed'})
+        JOBS[job_id]['finished_at'] = datetime.now(UTC).isoformat()
+        JOBS[job_id]['result'] = {'run_id': run_id}
+        _job_emit(job_id, {'agent': 'orchestrator', 'state': 'DONE', 'message': 'Traitement terminé'})
+
+        # Update run status to completed (best-effort)
+        try:
+            _patch_run_supabase_best_effort(run_id, {
+                'status': 'completed',
+                'finished_at': datetime.now(UTC).isoformat(),
+                'duration_ms': int((datetime.now(UTC) - started_at).total_seconds() * 1000),
+            })
+        except Exception:
+            pass
+        for r in RUNS:
+            if r.get('run_id') == run_id:
+                r['status'] = 'completed'
+                r['finished_at'] = datetime.now(UTC).isoformat()
+                r['duration_ms'] = int((datetime.now(UTC) - started_at).total_seconds() * 1000)
+                break
+    except Exception as e:
+        _job_set_state(job_id, 'FAILURE', {'error': str(e)})
+        JOBS[job_id]['finished_at'] = datetime.now(UTC).isoformat()
+        JOBS[job_id]['error'] = str(e)
+        _job_emit(job_id, {'agent': 'orchestrator', 'state': 'FAIL', 'message': str(e)})
+
+
+class LaunchRunResponse(BaseModel):
+    ok: bool
+    run_id: str
+    job_id: str
+    mode: str
+
+
+@app.post('/api/v1/runs/{run_id}/launch', response_model=LaunchRunResponse)
+def launch_run_agents(run_id: str, request: Request, background_tasks: BackgroundTasks):
+    """Launch the ADT multi-agent pipeline for a run."""
+    _load_local_state_if_needed()
+    tenant_id = getattr(request.state, 'user', {}).get('tenant') or 'public'
+
+    # Fetch run info (Supabase preferred)
+    run_row = None
+    try:
+        if _supabase_is_configured():
+            run_row = fetch_run_supabase(run_id)
+    except Exception:
+        run_row = None
+    if not run_row:
+        for r in RUNS:
+            if r.get('run_id') == run_id:
+                run_row = r
+                break
+    if not run_row:
+        raise HTTPException(status_code=404, detail=_tr(request,'run not found'))
+    if run_row.get('tenant_id') and run_row.get('tenant_id') != tenant_id:
+        raise HTTPException(status_code=403, detail=_tr(request,'forbidden cross-tenant run'))
+
+    project_id = run_row.get('project_id') or ''
+
+    _audit('adt.launch', request, {'run_id': run_id, 'project_id': project_id})
+
+    # Mark run as queued/pending
+    try:
+        _patch_run_supabase_best_effort(run_id, {'status': 'queued', 'started_at': datetime.now(UTC).isoformat()})
+    except Exception:
+        pass
+    for r in RUNS:
+        if r.get('run_id') == run_id:
+            r['status'] = 'queued'
+            r['started_at'] = datetime.now(UTC).isoformat()
+            break
+
+    if CELERY_ENABLED:
+        try:
+            job_id = process_run_task.delay(run_id, project_id).id
+            return LaunchRunResponse(ok=True, run_id=run_id, job_id=job_id, mode='celery')
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to launch Celery job: {e}")
+
+    job_id = f"job-{uuid.uuid4().hex[:10]}"
+    JOBS[job_id] = {
+        'job_id': job_id,
+        'run_id': run_id,
+        'status': 'PROCESSING',
+        'ready': False,
+        'successful': None,
+        'progress': {'stage': 'queued'},
+        'events': [],
+    }
+    background_tasks.add_task(_run_adt_job_in_process, job_id, run_id, project_id, tenant_id)
+    return LaunchRunResponse(ok=True, run_id=run_id, job_id=job_id, mode='in_process')
+
+
+def _gate_review_residual_risks(run_row: dict, variant_row: dict) -> list[dict]:
+    constraints = (run_row.get('constraints') or {}) if isinstance(run_row, dict) else {}
+    options = (run_row.get('options') or run_row.get('parameters') or {}) if isinstance(run_row, dict) else {}
+    sim_targets = (options.get('simulation_targets') or {}) if isinstance(options, dict) else {}
+    metrics = (variant_row.get('metrics') or {}) if isinstance(variant_row, dict) else {}
+
+    risks: list[dict] = []
+
+    try:
+        min_wall = float(constraints.get('min_wall_mm')) if constraints.get('min_wall_mm') is not None else None
+        max_temp = float(constraints.get('max_temp_c')) if constraints.get('max_temp_c') is not None else None
+        if min_wall is not None and max_temp is not None and min_wall <= 7 and max_temp >= 100:
+            risks.append({
+                'severity': 'medium',
+                'title': 'Épaisseur minimale vs cycles thermiques',
+                'detail': 'Épaisseur minimale proche du seuil et température élevée: vérifier fatigue/fluage et tolérances.',
+                'mitigation': 'Augmenter l’épaisseur locale, ajouter congés, valider par calcul/fatigue et essais.',
+            })
+    except Exception:
+        pass
+
+    try:
+        max_defl = sim_targets.get('max_deflection_mm')
+        defl = metrics.get('deflection_mm')
+        if max_defl is not None and defl is not None:
+            if float(defl) > float(max_defl):
+                risks.append({
+                    'severity': 'high',
+                    'title': 'Déflexion au-dessus de la cible',
+                    'detail': f"Déflexion mesurée {defl} mm > cible {max_defl} mm.",
+                    'mitigation': 'Renforcer nervures/épaisseurs, ajuster matériaux, rerun FEM.',
+                })
+    except Exception:
+        pass
+
+    try:
+        min_sf = sim_targets.get('min_safety_factor')
+        sf = metrics.get('safety_factor')
+        if min_sf is not None and sf is not None:
+            if float(sf) < float(min_sf):
+                risks.append({
+                    'severity': 'high',
+                    'title': 'Facteur de sécurité insuffisant',
+                    'detail': f"SF {sf} < cible {min_sf}.",
+                    'mitigation': 'Revoir sections critiques, matériaux, contraintes de charge, rerun FEM.',
+                })
+    except Exception:
+        pass
+
+    return risks
+
+
+@app.get('/api/v1/runs/{run_id}/gate-review')
+def get_gate_review(run_id: str, request: Request, variant_id: str | None = None):
+    """Compute gate-review bundle: standards checklist, residual risks, and digital thread."""
+    _load_local_state_if_needed()
+    tenant_id = getattr(request.state, 'user', {}).get('tenant') or 'public'
+
+    # Run
+    run_row = None
+    try:
+        if _supabase_is_configured():
+            run_row = fetch_run_supabase(run_id)
+    except Exception:
+        run_row = None
+    if not run_row:
+        for r in RUNS:
+            if r.get('run_id') == run_id:
+                run_row = r
+                break
+    if not run_row:
+        raise HTTPException(status_code=404, detail=_tr(request,'run not found'))
+    if run_row.get('tenant_id') and run_row.get('tenant_id') != tenant_id:
+        raise HTTPException(status_code=403, detail=_tr(request,'forbidden cross-tenant run'))
+
+    # Variant
+    variant_row = None
+    if variant_id:
+        try:
+            if _supabase_is_configured():
+                variant_row = fetch_variant_supabase(variant_id)
+        except Exception:
+            variant_row = None
+        if not variant_row:
+            for v in VARIANTS:
+                if v.get('id') == variant_id:
+                    variant_row = v
+                    break
+    else:
+        # pick best-scored variant
+        try:
+            candidates = list_variants_supabase(run_id) if _supabase_is_configured() else [v for v in VARIANTS if v.get('run_id') == run_id]
+            if candidates:
+                candidates = [c for c in candidates if isinstance(c, dict)]
+                candidates.sort(key=lambda x: float(x.get('score') or 0.0), reverse=True)
+                variant_row = candidates[0]
+                variant_id = variant_row.get('id')
+        except Exception:
+            variant_row = None
+
+    constraints = run_row.get('constraints') or {}
+    standards = []
+    try:
+        standards = constraints.get('applicable_standards') or []
+    except Exception:
+        standards = []
+    if not isinstance(standards, list):
+        standards = []
+
+    checklist = [{'standard': s, 'status': 'pass', 'note': 'Vérification préliminaire (à confirmer en revue)'} for s in standards]
+    risks = _gate_review_residual_risks(run_row, variant_row or {}) if variant_row else []
+
+    # Digital thread: filter recent audit events
+    thread = []
+    try:
+        recent = list(AUDIT_LOG)[-250:]
+        for ev in reversed(recent):
+            extra = ev.get('extra') or {}
+            if extra.get('run_id') == run_id or (isinstance(extra, dict) and extra.get('project_id') == run_row.get('project_id')):
+                thread.append(ev)
+        thread = list(reversed(thread[-100:]))
+    except Exception:
+        thread = []
+
+    _audit('gate.review', request, {'run_id': run_id, 'variant_id': variant_id})
+
+    return {
+        'run_id': run_id,
+        'project_id': run_row.get('project_id'),
+        'variant_id': variant_id,
+        'standards': checklist,
+        'residual_risks': risks,
+        'digital_thread': thread,
+    }
+
+
 @app.get('/api/v1/runs/{run_id}/variants', response_model=List[VariantOut])
 def get_variants(run_id: str):
     """List variants for a run, embedding basic DfX scores if available."""
@@ -2597,7 +3072,10 @@ def _generate_variants_for_run(run_id: str, body: VariantGenRequest) -> list[dic
             'mass_g': round(80 + i*2 + (uuid.uuid4().int % 10), 2),
             'part_count': 1,
             'support_volume_ratio': round(0.15 + 0.01*i, 3),
-            'material': 'PLA'
+            'material': 'PLA',
+            'deflection_mm': round(1.2 + i * 0.1, 2),
+            'safety_factor': round(2.8 - i * 0.1, 2),
+            'von_mises_mpa': round(45 + i * 5, 1)
         }
         scores = _compute_variant_scores(base_metrics)
 
@@ -4193,7 +4671,21 @@ def get_job_status(job_id: str, request: Request):
     Returns task state, progress metadata, and result if completed.
     """
     if not CELERY_ENABLED:
-        raise HTTPException(status_code=503, detail="Celery not enabled")
+        job = JOBS.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        return {
+            'job_id': job_id,
+            'status': job.get('status', 'PENDING'),
+            'ready': job.get('status') in ('SUCCESS', 'FAILURE'),
+            'successful': True if job.get('status') == 'SUCCESS' else (False if job.get('status') == 'FAILURE' else None),
+            'progress': job.get('progress'),
+            'result': job.get('result'),
+            'error': job.get('error'),
+            'started_at': job.get('started_at'),
+            'finished_at': job.get('finished_at'),
+            'run_id': job.get('run_id'),
+        }
     
     try:
         from celery.result import AsyncResult
@@ -4229,7 +4721,44 @@ def stream_job_events(job_id: str, request: Request):
     SSE messages until the task completes.
     """
     if not CELERY_ENABLED:
-        raise HTTPException(status_code=503, detail="Celery not enabled")
+        try:
+            import asyncio
+            from fastapi.responses import StreamingResponse
+
+            async def event_generator():
+                last_len = 0
+                while True:
+                    job = JOBS.get(job_id)
+                    if not job:
+                        payload = json.dumps({'state': 'NOT_FOUND'})
+                        yield f"event: status\ndata: {payload}\n\n"
+                        break
+
+                    events = job.get('events') or []
+                    if len(events) > last_len:
+                        for ev in events[last_len:]:
+                            payload = json.dumps(ev)
+                            yield f"event: event\ndata: {payload}\n\n"
+                        last_len = len(events)
+
+                    state = job.get('status', 'PENDING')
+                    payload = json.dumps({'state': state, 'info': job.get('progress')})
+                    yield f"event: status\ndata: {payload}\n\n"
+
+                    if state in ('SUCCESS', 'FAILURE'):
+                        if state == 'SUCCESS':
+                            payload = json.dumps({'state': 'SUCCESS', 'result': job.get('result')})
+                            yield f"event: result\ndata: {payload}\n\n"
+                        else:
+                            payload = json.dumps({'state': 'FAILURE', 'error': job.get('error')})
+                            yield f"event: result\ndata: {payload}\n\n"
+                        break
+
+                    await asyncio.sleep(1.0)
+
+            return StreamingResponse(event_generator(), media_type='text/event-stream')
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to stream in-process job events: {e}")
 
     try:
         from celery.result import AsyncResult

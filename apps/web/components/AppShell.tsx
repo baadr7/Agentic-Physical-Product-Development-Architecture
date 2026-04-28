@@ -1,12 +1,18 @@
 'use client';
 
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import LeftSidebar from '~/components/LeftSidebar';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname() ?? '';
+
+  // ADT flow wants a full-width, stage-gate experience (no sidebar).
+  const hideSidebar = pathname.startsWith('/adt');
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
+      {!hideSidebar && (
       <div className="md:hidden mb-3 flex items-center justify-between">
         <button
           type="button"
@@ -18,11 +24,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           ☰ Menu
         </button>
       </div>
+      )}
       <div className="grid grid-cols-12 gap-6">
-        <div id="app-sidebar" className={`col-span-12 md:col-span-3 ${open ? '' : 'hidden md:block'}`}>
-          <LeftSidebar />
-        </div>
-        <main className="col-span-12 md:col-span-9">{children}</main>
+        {!hideSidebar && (
+          <div id="app-sidebar" className={`col-span-12 md:col-span-3 ${open ? '' : 'hidden md:block'}`}>
+            <LeftSidebar />
+          </div>
+        )}
+        <main className={hideSidebar ? 'col-span-12' : 'col-span-12 md:col-span-9'}>{children}</main>
       </div>
     </div>
   );

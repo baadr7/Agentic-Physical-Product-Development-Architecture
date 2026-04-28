@@ -19,12 +19,19 @@ export function useUser(initialData?: JwtPayload | null) {
   const queryFn = async () => {
     if (disabled) {
       // Provide a stable fake user for UI-only local development.
+      const now = Math.floor(Date.now() / 1000);
       return {
         sub: 'dev-user',
         email: 'dev@example.com',
         role: 'authenticated',
         aud: 'authenticated',
-      } as JwtPayload;
+        // RequiredClaims (supabase-js)
+        iss: 'dev',
+        iat: now,
+        exp: now + 60 * 60 * 24 * 365,
+        aal: 'aal1',
+        session_id: 'dev-session',
+      } as unknown as JwtPayload;
     }
 
     const response = await client.auth.getClaims();

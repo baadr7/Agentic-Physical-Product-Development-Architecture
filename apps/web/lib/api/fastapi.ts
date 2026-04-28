@@ -99,6 +99,7 @@ export async function apiCreateRun(body: {
   description?: string;
   constraints?: Record<string, unknown>;
   options?: Record<string, unknown>;
+  skip_processing?: boolean;
 }): Promise<Run> {
   const data = await doFetch(`/api/v1/runs`, {
     method: 'POST',
@@ -118,6 +119,39 @@ export async function apiCreateRun(body: {
     metadata: data.metadata || {},
     created_at: data.created_at,
   } as Run;
+}
+
+export async function apiGetScenarios(): Promise<any[]> {
+  return doFetch(`/api/v1/scenarios`);
+}
+
+export async function apiPatchRun(runId: string, body: {
+  description?: string;
+  constraints?: Record<string, unknown>;
+  options?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  status?: string;
+}): Promise<any> {
+  return doFetch(`/api/v1/runs/${runId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  });
+}
+
+export async function apiLaunchRun(runId: string): Promise<{ ok: boolean; run_id: string; job_id: string; mode: string }> {
+  return doFetch(`/api/v1/runs/${runId}/launch`, {
+    method: 'POST',
+  });
+}
+
+export async function apiGetJobStatus(jobId: string): Promise<any> {
+  return doFetch(`/api/v1/jobs/${jobId}/status`, { timeoutMs: 30_000 });
+}
+
+export async function apiGetGateReview(runId: string, variantId?: string): Promise<any> {
+  const qs = variantId ? `?variant_id=${encodeURIComponent(variantId)}` : '';
+  return doFetch(`/api/v1/runs/${runId}/gate-review${qs}`, { timeoutMs: 30_000 });
 }
 
 export function apiReportPdfUrl(runId: string) {
