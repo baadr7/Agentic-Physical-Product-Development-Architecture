@@ -64,14 +64,20 @@ const AppConfigSchema = z
   );
 
 const appConfig = AppConfigSchema.parse({
-  name: process.env.NEXT_PUBLIC_PRODUCT_NAME,
-  title: process.env.NEXT_PUBLIC_SITE_TITLE,
-  description: process.env.NEXT_PUBLIC_SITE_DESCRIPTION,
-  url: process.env.NEXT_PUBLIC_SITE_URL,
+  name: process.env.NEXT_PUBLIC_PRODUCT_NAME ?? 'AI for Design',
+  title:
+    process.env.NEXT_PUBLIC_SITE_TITLE ??
+    'AI for Design - Generative product design workspace',
+  description:
+    process.env.NEXT_PUBLIC_SITE_DESCRIPTION ??
+    'Generate, compare, and validate product concepts with AI-assisted DfX workflows.',
+  url:
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (production ? 'https://ai-for-design.local' : 'http://localhost:3000'),
   locale: process.env.NEXT_PUBLIC_DEFAULT_LOCALE,
-  theme: process.env.NEXT_PUBLIC_DEFAULT_THEME_MODE,
-  themeColor: process.env.NEXT_PUBLIC_THEME_COLOR,
-  themeColorDark: process.env.NEXT_PUBLIC_THEME_COLOR_DARK,
+  theme: process.env.NEXT_PUBLIC_DEFAULT_THEME_MODE ?? 'light',
+  themeColor: process.env.NEXT_PUBLIC_THEME_COLOR ?? '#ffffff',
+  themeColorDark: process.env.NEXT_PUBLIC_THEME_COLOR_DARK ?? '#0f172a',
   production,
 });
 

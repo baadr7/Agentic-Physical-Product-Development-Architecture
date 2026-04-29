@@ -76,7 +76,9 @@ export default function GltfViewer({ url, width = 600, height = 400, autoRotate 
             camera.lookAt(center);
             controls.target.copy(center);
             controls.update();
-          } catch (_) {}
+          } catch {
+            // Best-effort camera fit; the model still renders if bounds fail.
+          }
         }, undefined, () => {
           setFailed(true);
         });
@@ -103,8 +105,8 @@ export default function GltfViewer({ url, width = 600, height = 400, autoRotate 
           disposed = true;
           window.removeEventListener('resize', handleResize);
           if (animationId) cancelAnimationFrame(animationId);
-          try { controls.dispose(); } catch (_) {}
-          try { renderer.dispose(); } catch (_) {}
+          controls.dispose();
+          renderer.dispose();
           if (mountRef.current) {
             while (mountRef.current.firstChild) {
               mountRef.current.removeChild(mountRef.current.firstChild);

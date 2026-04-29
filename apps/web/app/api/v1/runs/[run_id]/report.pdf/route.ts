@@ -35,9 +35,9 @@ async function tryProxy(req: NextRequest, runId: string): Promise<Response | nul
   const base = getFastApiBaseUrl().replace(/\/$/, '');
   const url = `${base}/api/v1/runs/${encodeURIComponent(runId)}/report.pdf`;
   try {
-    const headers: HeadersInit = {};
+    const headers: Record<string, string> = {};
     const auth = req.headers.get('authorization');
-    if (auth) (headers as any).authorization = auth;
+    if (auth) headers.authorization = auth;
 
     const upstream = await fetch(url, { method: 'GET', headers, cache: 'no-store' });
     const buf = await upstream.arrayBuffer();
@@ -55,7 +55,12 @@ export async function GET(req: NextRequest, { params }: { params: { run_id: stri
 
   // Fallback stub PDF when FastAPI is not reachable.
   const bytes = buildPdf();
-  return new Response(bytes, {
+  const body = bytes.buffer.slice(
+    bytes.byteOffset,
+    bytes.byteOffset + bytes.byteLength,
+  ) as ArrayBuffer;
+
+  return new Response(body, {
     status: 200,
     headers: {
       'Content-Type': 'application/pdf',

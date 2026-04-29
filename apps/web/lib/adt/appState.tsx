@@ -6,6 +6,7 @@ import { SCENARIOS } from '~/lib/adt/config';
 
 // ── AppState shape ────────────────────────────────────────
 export interface AdtAppState {
+  brief?: Record<string, unknown>;
   scenarioId: string;
   projectId: string;
   runId: string;

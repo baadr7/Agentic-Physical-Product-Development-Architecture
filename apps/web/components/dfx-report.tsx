@@ -15,7 +15,10 @@ export interface DfxScoresProps {
 }
 
 export const DfxReport: React.FC<DfxScoresProps> = ({ scores, summary }) => {
-  const entries = Object.entries(scores || {}).filter(([k]) => k.endsWith('_score'));
+  const entries = Object.entries(scores || {}).filter(
+    (entry): entry is [string, number] =>
+      entry[0].endsWith('_score') && typeof entry[1] === 'number',
+  );
   return (
     <div style={{border:'1px solid #ddd', padding:'1rem', borderRadius:8}}>
       <h3>DfX Multi-Objective Report</h3>

@@ -1,19 +1,15 @@
-/**
- * Mock data for development
- */
-
-import { Project, Run, Variant, DfxSummary } from './types';
+import type { DfxSummary, Project, Run, Variant } from './types';
 
 export const MOCK_PROJECT: Project = {
   id: 'proj-1',
   user_id: 'user-1',
-  title: 'Chaise Minimaliste',
-  logo_url: 'https://via.placeholder.com/128x128?text=CM',
-  description: 'Chaise de bureau ergonomique avec design minimaliste',
+  title: 'Ergonomic Desk Chair',
+  logo_url: 'https://via.placeholder.com/128x128?text=EDC',
+  description: 'Minimal office chair with a lightweight frame and modular seat shell.',
   product_type: 'furniture',
   brief:
-    'Créer une chaise de bureau confortable et esthétique avec pieds en métal et assise en mousse.',
-  materials: ['Métal', 'Mousse EVA', 'Tissu'],
+    'Create a comfortable office chair with a clean silhouette, metal legs, foam seating, and manufacturable modular parts.',
+  materials: ['Aluminum', 'EVA foam', 'Technical fabric'],
   constraints: {
     height_cm: 85,
     width_cm: 65,
@@ -31,8 +27,8 @@ export const MOCK_RUNS: Run[] = [
     run_id: 'run_20250112_001',
     project_id: 'proj-1',
     status: 'completed',
-    started_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(), // 5 min ago
-    finished_at: new Date(Date.now() - 2 * 60 * 1000).toISOString(), // 2 min ago
+    started_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    finished_at: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
     duration_ms: 180000,
     parameters: {
       guidance_scale: 7.5,
@@ -61,7 +57,7 @@ export const MOCK_RUNS: Run[] = [
   {
     id: 'run-3',
     run_id: 'run_20250112_003',
-    project_id: 'proj-1',
+    project_id: 'proj-2',
     status: 'processing',
     started_at: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
     duration_ms: undefined,
@@ -90,7 +86,7 @@ export const MOCK_VARIANTS: Variant[] = [
       sustainability_score: 0.72,
     },
     score: 8.5,
-    dfx_analysis: 'Design fabricable, bonne performance structurelle.',
+    dfx_analysis: 'Fabricable design with strong structural performance.',
     created_at: new Date(Date.now() - 2 * 60 * 1000).toISOString(),
   },
   {
@@ -107,35 +103,22 @@ export const MOCK_VARIANTS: Variant[] = [
       sustainability_score: 0.78,
     },
     score: 9.1,
-    dfx_analysis: 'Meilleure optimisation de masse, très fabricable.',
+    dfx_analysis: 'Better mass optimization and easier manufacturing.',
     created_at: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
   },
 ];
 
 export const MOCK_DFX_SUMMARY: DfxSummary = {
   variant_id: 'var-1',
-  summary: `Cette conception de chaise minimaliste présente une excellente combinaison de facteurs DfX :
-
-1. **Fabricabilité**: Le design utilise des formes simples et des angles rasants, 
-   ce qui rend la production par injection plastique très efficace.
-
-2. **Assemblabilité**: Tous les composants se clipsent facilement. Les jointures
-   sont simples et nécessitent peu d'outils spécialisés.
-
-3. **Durabilité**: Les matériaux sélectionnés (mousse EVA + tissu technique) offrent
-   une longévité de 5-7 ans en utilisation continue.
-
-4. **Recyclabilité**: 100% des composants sont recyclables séparément.
-
-Recommandations : Ajouter des renforts internes pour améliorer le facteur de 
-sécurité structural de 2.5 à 3.0+.`,
+  summary:
+    'The chair concept balances manufacturability, assembly, and sustainability. The geometry uses simple parting lines, the fasteners are easy to access, and the material choices support modular repair.',
   fabricability_score: 0.85,
   assemblability_score: 0.88,
   sustainability_score: 0.72,
   recommendations: [
-    'Ajouter des renforts internes pour meilleure rigidité',
-    'Utiliser des matériaux recyclés pour la base',
-    'Réduire le nombre de vis à 2 (actuellement 4)',
+    'Add internal ribs to improve stiffness.',
+    'Use recycled content for the base where possible.',
+    'Reduce visible fasteners from four to two.',
   ],
   created_at: new Date().toISOString(),
 };
@@ -145,12 +128,12 @@ export const MOCK_PROJECTS: Project[] = [
   {
     id: 'proj-2',
     user_id: 'user-1',
-    title: 'Lampe Connectée',
-    logo_url: 'https://via.placeholder.com/128x128?text=LC',
-    description: 'Lampe de bureau IoT avec contrôle via app mobile',
+    title: 'Connected Desk Lamp',
+    logo_url: 'https://via.placeholder.com/128x128?text=CDL',
+    description: 'IoT desk lamp with app controls and efficient RGB lighting.',
     product_type: 'electronics',
-    brief: 'Lampe de bureau avec LED RGB, compatible Wi-Fi et voice control.',
-    materials: ['Aluminium', 'Plastique ABS', 'Verre'],
+    brief: 'Design a desk lamp with RGB LEDs, Wi-Fi control, and voice assistant compatibility.',
+    materials: ['Aluminum', 'ABS plastic', 'Glass'],
     constraints: {
       height_cm: 40,
       power_consumption_w: 15,
