@@ -1,0 +1,18 @@
+{
+  "id": "S1",
+  "name": "Aérospatial / Sécurité critique",
+  "icon": "aerospace",
+  "description": "Pièce structurelle aérospatiale — pas de génération autonome autorisée",
+  "global_hitl": 1,
+  "human_role": "Pleine autorité",
+  "dfx_priorities": { "dfm": 2, "dfa": 2, "dfr": 5, "dfc": 1, "dfs": 4 },
+  "agent_levels": { "orchestrator": 2, "retrieval": 3, "generation": 1, "simulation": 2, "dfx": 2, "doc": 3 },
+  "product_brief": {
+    "name": "Ferrure structurelle AE-100",
+    "function": "Ferrure porteuse structure primaire, grade aérospatial",
+    "constraints": { "temp_max_C": 180, "temp_min_C": -55, "mass_max_kg": 0.5, "mtbf_cycles": 500000, "cost_target_eur": 2000, "wall_min_mm": 3, "ra_um": 1.6 },
+    "standards": ["EN 9100", "DO-160"],
+    "behaviourExpected": { "stress_max_MPa": 200, "deflection_max_mm": 0.02, "proof_ok": true }
+  },
+  "knowledge": "Scénario aérospatial à sécurité critique. La fiabilité (DFR) prime, la durabilité (DFS) est élevée, le coût (DFC) est secondaire. Le concepteur garde la pleine autorité : niveau HITL global L1 et génération en L1 — aucune génération autonome n'est autorisée, chaque proposition d'agent doit être validée par un humain. Pièce structurelle primaire (ferrure porteuse) en grade aérospatial, plage thermique -55 à +180 °C, masse très contrainte (≤ 0,5 kg), MTBF ≥ 500 000 cycles, état de surface fin (Ra 1,6 µm). Normes applicables : EN 9100 (management qualité aéronautique) et DO-160 (conditions environnementales). À retenir : exigences de tenue mécanique et de traçabilité maximales, autonomie agent minimale."
+}

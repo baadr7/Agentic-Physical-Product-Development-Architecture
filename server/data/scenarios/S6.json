@@ -1,0 +1,18 @@
+{
+  "id": "S6",
+  "name": "Custom",
+  "icon": "custom",
+  "description": "Tout produit — liberté totale",
+  "global_hitl": 3,
+  "human_role": "Consultant",
+  "dfx_priorities": { "dfm": 3, "dfa": 3, "dfr": 3, "dfc": 3, "dfs": 3 },
+  "agent_levels": { "orchestrator": 3, "retrieval": 4, "generation": 3, "simulation": 3, "dfx": 3, "doc": 4 },
+  "product_brief": {
+    "name": "",
+    "function": "",
+    "constraints": { "temp_max_C": 0, "temp_min_C": 0, "mass_max_kg": 0, "mtbf_cycles": 0, "cost_target_eur": 0, "wall_min_mm": 0, "ra_um": 0 },
+    "standards": [],
+    "behaviourExpected": { "stress_max_MPa": 0, "deflection_max_mm": 0, "proof_ok": true }
+  },
+  "knowledge": "Scénario personnalisé (Custom) : liberté totale, tout type de produit. Toutes les priorités DFx sont neutres (3/3) et tous les agents en L3 par défaut. Niveau HITL global L3 — concepteur consultant. Le brief produit est vide et doit être renseigné par l'utilisateur (nom, fonction, contraintes, normes, comportement attendu). À retenir : point de départ ouvert pour un cas non couvert par les scénarios prédéfinis."
+}

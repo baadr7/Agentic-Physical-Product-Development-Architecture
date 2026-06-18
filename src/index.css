@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Theme palettes. Values are space-separated RGB channels so Tailwind can
+     apply opacity modifiers via rgb(var(--token) / <alpha-value>).
+     Mirror of THEME_TOKENS in src/theme/index.ts. */
+  :root,
+  [data-theme='dark'] {
+    color-scheme: dark;
+    --surface: 15 20 25;
+    --surface-raised: 22 28 35;
+    --surface-overlay: 30 38 48;
+    --border: 42 52 65;
+    --border-strong: 61 74 92;
+    --text-primary: 230 235 240;
+    --text-secondary: 154 167 181;
+    --text-muted: 94 107 122;
+  }
+  [data-theme='light'] {
+    color-scheme: light;
+    --surface: 243 245 248;
+    --surface-raised: 255 255 255;
+    --surface-overlay: 232 236 242;
+    --border: 214 221 230;
+    --border-strong: 184 194 207;
+    --text-primary: 17 24 31;
+    --text-secondary: 71 85 105;
+    --text-muted: 100 116 139;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-surface text-text-primary font-sans antialiased;
+    font-size: 13px;
+    font-feature-settings: 'tnum' 1;
+  }
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgb(var(--surface));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--border));
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--border-strong));
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface-raised border border-border rounded-lg;
+  }
+  .card-overlay {
+    @apply bg-surface-overlay border border-border rounded-lg;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1 rounded px-2 py-0.5 text-caption font-medium;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-body font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn bg-human text-white hover:bg-blue-500;
+  }
+  .btn-ghost {
+    @apply btn border border-border-strong text-text-secondary hover:bg-surface-overlay hover:text-text-primary;
+  }
+  .input {
+    @apply w-full rounded-md border border-border bg-surface px-3 py-2 text-body text-text-primary outline-none focus:border-human;
+  }
+  .mono {
+    @apply font-mono text-caption;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

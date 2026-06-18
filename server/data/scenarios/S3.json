@@ -1,0 +1,18 @@
+{
+  "id": "S3",
+  "name": "Conception durable",
+  "icon": "sustainable",
+  "description": "Produit grand public — les KPI de durabilité priment",
+  "global_hitl": 3,
+  "human_role": "Consultant",
+  "dfx_priorities": { "dfm": 3, "dfa": 2, "dfr": 3, "dfc": 2, "dfs": 5 },
+  "agent_levels": { "orchestrator": 3, "retrieval": 4, "generation": 2, "simulation": 3, "dfx": 3, "doc": 4 },
+  "product_brief": {
+    "name": "Boîtier produit éco-conçu",
+    "function": "Protéger l'électronique, maximiser recyclabilité et réparabilité",
+    "constraints": { "temp_max_C": 70, "temp_min_C": -20, "mass_max_kg": 1.2, "mtbf_cycles": 80000, "cost_target_eur": 45, "wall_min_mm": 2.5, "ra_um": 6.3 },
+    "standards": ["ISO 14021", "EN 45555"],
+    "behaviourExpected": { "stress_max_MPa": 90, "deflection_max_mm": 0.08, "proof_ok": true }
+  },
+  "knowledge": "Scénario de conception durable (éco-conception). La durabilité (DFS) est la priorité maximale (5/5) ; recyclabilité, réparabilité et empreinte matière dominent les arbitrages. Niveau HITL global L3 — concepteur consultant. Produit grand public : boîtier protégeant de l'électronique, plage -20/+70 °C, masse ≤ 1,2 kg, coût cible 45 €. Normes : ISO 14021 (auto-déclarations environnementales) et EN 45555 (évaluation de la recyclabilité/valorisation). À retenir : privilégier mono-matériau recyclable, démontabilité, et déclencher la question éco-contractuelle quand DFS ≥ 4."
+}

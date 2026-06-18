@@ -1,0 +1,18 @@
+{
+  "id": "S4",
+  "name": "Fast MVP (startup)",
+  "icon": "startup",
+  "description": "Startup hardware — rapidité avant exhaustivité",
+  "global_hitl": 4,
+  "human_role": "Approbateur",
+  "dfx_priorities": { "dfm": 4, "dfa": 3, "dfr": 2, "dfc": 5, "dfs": 1 },
+  "agent_levels": { "orchestrator": 3, "retrieval": 4, "generation": 4, "simulation": 4, "dfx": 4, "doc": 5 },
+  "product_brief": {
+    "name": "Support capteur MVP-01",
+    "function": "Maintenir un module capteur, itération rapide, coût minimal",
+    "constraints": { "temp_max_C": 60, "temp_min_C": 0, "mass_max_kg": 0.8, "mtbf_cycles": 20000, "cost_target_eur": 25, "wall_min_mm": 2, "ra_um": 12.5 },
+    "standards": ["CE"],
+    "behaviourExpected": { "stress_max_MPa": 80, "deflection_max_mm": 0.1, "proof_ok": true }
+  },
+  "knowledge": "Scénario Fast MVP pour startup hardware : la rapidité prime sur l'exhaustivité. Le coût (DFC) est prioritaire (5/5), la fabricabilité élevée, la durabilité minimale (1/5). Niveau HITL global L4 et agents en L4–L5 — forte autonomie : le concepteur agit en approbateur, les agents avancent seuls et l'humain valide en fin de course (documentation en L5, quasi automatique). Produit : support de module capteur, plage 0/+60 °C, masse ≤ 0,8 kg, coût cible 25 €, exigences de surface lâches (Ra 12,5 µm). Marquage CE. À retenir : itération rapide, autonomie agent maximale, fiabilité/durabilité sacrifiées au profit du time-to-market."
+}

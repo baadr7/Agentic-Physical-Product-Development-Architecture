@@ -1,0 +1,18 @@
+{
+  "id": "S2",
+  "name": "Industriel défaut (DN100)",
+  "icon": "industrial",
+  "description": "Corps de vanne papillon DN100 — DFx équilibrés. Sélection par défaut.",
+  "global_hitl": 3,
+  "human_role": "Consultant",
+  "dfx_priorities": { "dfm": 3, "dfa": 2, "dfr": 3, "dfc": 3, "dfs": 2 },
+  "agent_levels": { "orchestrator": 3, "retrieval": 4, "generation": 2, "simulation": 3, "dfx": 3, "doc": 4 },
+  "product_brief": {
+    "name": "Corps de vanne papillon DN100",
+    "function": "Réguler le débit DN100/PN16, assurer l'étanchéité, résister aux cycles thermiques",
+    "constraints": { "temp_max_C": 120, "temp_min_C": -10, "mass_max_kg": 2.8, "mtbf_cycles": 50000, "cost_target_eur": 70, "wall_min_mm": 6, "ra_um": 3.2, "pressure_bar": 16 },
+    "standards": ["EN 593", "EN 12334"],
+    "behaviourExpected": { "stress_max_MPa": 120, "deflection_max_mm": 0.05, "proof_ok": true }
+  },
+  "knowledge": "Scénario industriel par défaut : le cas de référence de la démo, un corps de vanne papillon DN100 / PN16 (16 bar). DFx équilibrés (fabricabilité, fiabilité et coût au même niveau). Niveau HITL global L3 — le concepteur agit en consultant : les agents proposent, l'humain arbitre. Fonction : réguler le débit, assurer l'étanchéité (siège élastomère), résister aux cycles thermiques -10/+120 °C. Contraintes : masse ≤ 2,8 kg, MTBF ≥ 50 000 cycles, coût cible 70 €, paroi mini 6 mm. Normes : EN 593 (vannes papillon métalliques) et EN 12334 (clapets en fonte). C'est le scénario hôte de la boucle de feedback terrain → redesign (concept A-v2)."
+}
