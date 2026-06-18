@@ -1,7 +1,0 @@
-apiVersion: v2
-name: makerkit-diffusion
-version: 0.1.0
-appVersion: "0.1.0"
-description: Helm chart for Makerkit Diffusion GPU service
-keywords: [makerkit, diffusion, gpu]
-type: application

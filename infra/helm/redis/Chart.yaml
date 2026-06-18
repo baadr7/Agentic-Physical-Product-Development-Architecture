@@ -1,7 +1,0 @@
-apiVersion: v2
-name: makerkit-redis
-version: 0.1.0
-appVersion: "7.2"
-description: Minimal Redis chart for Makerkit rate limiting and Celery backend
-keywords: [redis, makerkit]
-type: application
