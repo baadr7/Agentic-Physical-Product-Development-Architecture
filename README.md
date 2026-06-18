@@ -84,3 +84,38 @@ pour l'analyse complète et le jeu de données corrigé, cohérent en coût, qui
 
 Les 19 tests Vitest verrouillent l'inversion DFC, le composite, le déterminisme et ces
 gagnants.
+
+## Documentation
+
+Le dossier [`docs/`](docs/) contient la spécification complète et les notes de conception :
+
+| Doc | Sujet |
+|---|---|
+| [00 — Overview](docs/00-overview.md) | Portée, 6 revendications, 5 couches APDA, 6 agents |
+| [01 — Architecture](docs/01-architecture.md) | Architecture front + moteur |
+| [02 — Data Model](docs/02-data-model.md) | Modèle de données |
+| [03 — Screens](docs/03-screens.md) | Écrans E1–E8 |
+| [04 — HITL Matrix](docs/04-hitl-matrix.md) | Matrice d'autonomie HITL (L1–L5 par agent) |
+| [05 — DFx Scoring](docs/05-dfx-scoring.md) | Scoring DFx déterministe et tracé |
+| [06 — Connectors](docs/06-connectors.md) | Connecteur générique (Layer 3) |
+| [07 — Feedback Loop](docs/07-feedback-loop.md) | Boucle de feedback fermée (ADT) |
+| [08 — Design System](docs/08-design-system.md) | Système de design (qualité industrielle) |
+| [09 — AI Engine](docs/09-ai-engine.md) | Moteur IA (DeepSeek / compatible OpenAI) |
+| [10 — Glossary](docs/10-glossary.md) | Glossaire (22 termes) |
+| [11 — Backend](docs/11-backend.md) | Backend (API + base de données + RAG) |
+| [BUILD_PLAN](docs/BUILD_PLAN.md) | Plan de construction (prompts phasés) |
+| [SPEC_RECONCILIATION](docs/SPEC_RECONCILIATION.md) | Réconciliation du CDC (scores DFx & classements) |
+
+## Livrables (présentation & rapport)
+
+La présentation et le rapport du projet sont produits par trois scripts Node autonomes
+(non requis pour exécuter l'application ; dépendances installées séparément :
+`puppeteer-core`, `pptxgenjs`, `docx`) :
+
+- `_shots.cjs` — pilote l'app lancée (`http://localhost:5174`) via Edge *headless* et
+  capture chaque écran.
+- `_deck_build.cjs` — construit la présentation 12 slides (thème sombre) → `.pptx`.
+- `_report_build.cjs` — construit le rapport détaillé illustré → `Rapport_APDA.docx`.
+
+Les artefacts générés (`APDA Presentation.pptx`, `APDA Rapport.pdf`, `_report_assets/`)
+sont *gitignored* — seuls les scripts de génération sont versionnés.
