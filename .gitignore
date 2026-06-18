@@ -22,3 +22,8 @@ _report_assets/
 .claude/
 APDA Presentation.pptx
 APDA Rapport.pdf
+Presentation_APDA.pptx
+Rapport_APDA.docx
+_deck_build.cjs
+_report_build.cjs
+_shots.cjs

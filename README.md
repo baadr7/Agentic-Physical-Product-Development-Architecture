@@ -106,16 +106,3 @@ Le dossier [`docs/`](docs/) contient la spécification complète et les notes de
 | [BUILD_PLAN](docs/BUILD_PLAN.md) | Plan de construction (prompts phasés) |
 | [SPEC_RECONCILIATION](docs/SPEC_RECONCILIATION.md) | Réconciliation du CDC (scores DFx & classements) |
 
-## Livrables (présentation & rapport)
-
-La présentation et le rapport du projet sont produits par trois scripts Node autonomes
-(non requis pour exécuter l'application ; dépendances installées séparément :
-`puppeteer-core`, `pptxgenjs`, `docx`) :
-
-- `_shots.cjs` — pilote l'app lancée (`http://localhost:5174`) via Edge *headless* et
-  capture chaque écran.
-- `_deck_build.cjs` — construit la présentation 12 slides (thème sombre) → `.pptx`.
-- `_report_build.cjs` — construit le rapport détaillé illustré → `Rapport_APDA.docx`.
-
-Les artefacts générés (`APDA Presentation.pptx`, `APDA Rapport.pdf`, `_report_assets/`)
-sont *gitignored* — seuls les scripts de génération sont versionnés.
