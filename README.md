@@ -1,9 +1,11 @@
-# APDA — Demo « IA pour la conception »
+# APDA - Demo « IA pour la conception »
 
 Application démontrant le framework **APDA** (Agentic Physical
 Product Development Architecture) sur le cas de référence **vanne papillon DN100**.
 Qualité visée : outil industriel commercial (Siemens Xcelerator / PTC Windchill /
 Autodesk Fusion).
+
+<img src="demo/demo.gif">
 
 ## Démarrage
 
@@ -106,3 +108,6 @@ Le dossier [`docs/`](docs/) contient la spécification complète et les notes de
 | [BUILD_PLAN](docs/BUILD_PLAN.md) | Plan de construction (prompts phasés) |
 | [SPEC_RECONCILIATION](docs/SPEC_RECONCILIATION.md) | Réconciliation du CDC (scores DFx & classements) |
 
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
